@@ -3,10 +3,9 @@ import { LargeFragment } from "./Fragments";
 import { createAsyncGraphQLAction2 } from "../../../../dynamic/src/Core/createAsyncGraphQLAction2";
 
 const ReadQueryStr = `
-query eventTypeById($id: UUID!) {
-  eventTypeById(id: $id) {
-    ...Largeq
-    
+query eventById($id: UUID!) {
+  eventById(id: $id) {
+    ...Large
   }
 }
 `

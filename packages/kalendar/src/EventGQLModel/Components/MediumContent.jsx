@@ -1,6 +1,7 @@
 import { Col } from "../../../../_template/src/Base/Components/Col"
 import { Row } from "../../../../_template/src/Base/Components/Row"
 import { Link } from "./Link"
+
 /**
  * A component that displays medium-level content for an template entity.
  *
@@ -93,4 +94,36 @@ import { Link } from "./Link"
 //     )
 // }
 
-export { MediumContent } from "../../../../_template/src/Base/Components/MediumContent"
+// export { MediumContent } from "../../../../_template/src/Base/Components/MediumContent"
+
+import { MediumContent as MediumContent_ } from "../../../../_template/src/Base/Components/MediumContent"
+import {Attribute } from "../../../../_template/src/Base/Components"
+
+export const MediumContent = ({item, children}) => {
+    return (
+        <>
+            
+            <Attribute label="Název">
+                <Link item={item} />
+            </Attribute>
+
+            <Attribute label="Začátek">
+                {item.startdate ? new Date(item.startdate).toLocaleString() : 'Není určeno'}
+            </Attribute>
+            
+            <Attribute label="Konec">
+                 {item.enddate ? new Date(item.enddate).toLocaleString() : 'Není určeno'}
+            </Attribute>
+
+            <Attribute label="Místo">
+                {item.place || 'Není určeno'}
+            </Attribute>
+
+            <Attribute label="Popis">
+                {item.description || ''}
+            </Attribute>
+
+            {children}
+        </>
+    )
+}
