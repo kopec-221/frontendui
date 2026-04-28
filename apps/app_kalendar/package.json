@@ -1,7 +1,7 @@
 {
-  "name": "@hrbolek/app_kalendar",
+  "name": "@kopec211/app_kalendar",
   "private": false,
-  "version": "0.5.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
