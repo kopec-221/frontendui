@@ -12,7 +12,7 @@ const DefaultContent = (props) => <MediumEditableContent {...props} />
 const mutationAsyncAction = UpdateAsyncAction
 
 const permissions = {
-    oneOfRoles: ["superadmin"],
+    oneOfRoles: ["administrátor"],
     mode: "absolute",
 }
 
@@ -22,6 +22,17 @@ const permissions = {
 //     mode: "item",
 // }
 
+
+// Mapování políček z formuláře na formát, který očekává GQL (např. name -> event_name)
+const attributeTransformer = (id, value) => ({ [`event_${id}`]: value });
+
+// Příprava povinných parametrů (ID a lastchange), které backend vyžaduje při každém uložení
+const payloadBuilder = (item) => ({ 
+    event_id: item?.id, 
+    event_lastchange: item?.lastchange 
+});
+// ----------------------------
+
 /**
  * Link na update stránku / update route pro konkrétní entitu.
  *
@@ -30,10 +41,10 @@ const permissions = {
  *
  * @param {Object} params
  * @param {string} [params.uriPattern=UpdateItemURI]
- *   URI pattern pro update route (typicky obsahuje `:id` nebo je již konkrétní URL dle routování).
+ * URI pattern pro update route (typicky obsahuje `:id` nebo je již konkrétní URL dle routování).
  * @param {Object} params.props
- *   Další props přeposílané do `BaseUpdateLink` (např. `children`, `className`,
- *   `preserveSearch`, `preserveHash`, atd.).
+ * Další props přeposílané do `BaseUpdateLink` (např. `children`, `className`,
+ * `preserveSearch`, `preserveHash`, atd.).
  * @returns {JSX.Element}
  */
 export const UpdateLink = ({
@@ -56,12 +67,12 @@ export const UpdateLink = ({
  *
  * @param {Object} params
  * @param {React.ComponentType<Object>} [params.DefaultContent=DefaultContent]
- *   Komponenta, která vykreslí editovatelný obsah dialogu (typicky MediumEditableContent).
+ * Komponenta, která vykreslí editovatelný obsah dialogu (typicky MediumEditableContent).
  * @param {Function} [params.mutationAsyncAction=mutationAsyncAction]
- *   Async action (thunk) pro uložení změn (např. UpdateAsyncAction). Použije se podle Base/General implementace.
+ * Async action (thunk) pro uložení změn (např. UpdateAsyncAction). Použije se podle Base/General implementace.
  * @param {Object} params.props
- *   Další props přeposílané do `BaseUpdateDialog` (např. `title`, `oklabel`, `cancellabel`,
- *   `item`, `onOk`, `onCancel`, atd.).
+ * Další props přeposílané do `BaseUpdateDialog` (např. `title`, `oklabel`, `cancellabel`,
+ * `item`, `onOk`, `onCancel`, atd.).
  * @returns {JSX.Element}
  */
 export const UpdateDialog = ({
@@ -74,6 +85,8 @@ export const UpdateDialog = ({
             {...props}
             DefaultContent={DefaultContent_}
             mutationAsyncAction={mutationAsyncAction_}
+            onAttributeChange={attributeTransformer}
+            onOk={payloadBuilder}
             {...permissions}
         />
     );
@@ -87,14 +100,14 @@ export const UpdateDialog = ({
  *
  * @param {Object} params
  * @param {React.ComponentType<Object>} [params.DefaultContent=DefaultContent]
- *   Komponenta editovatelného obsahu (typicky MediumEditableContent).
+ * Komponenta editovatelného obsahu (typicky MediumEditableContent).
  * @param {React.ComponentType<Object>} [params.Dialog=UpdateDialog]
- *   Dialog komponenta použitá pro editaci (volá `onOk(draft)` / `onCancel()`).
+ * Dialog komponenta použitá pro editaci (volá `onOk(draft)` / `onCancel()`).
  * @param {Function} [params.mutationAsyncAction=mutationAsyncAction]
- *   Async action (thunk) pro uložení změn (např. UpdateAsyncAction).
+ * Async action (thunk) pro uložení změn (např. UpdateAsyncAction).
  * @param {Object} params.props
- *   Další props přeposílané do `BaseUpdateButton` (např. `children`, `className`, `title`,
- *   `item`, `uriPattern`, `onOk`, `onCancel`, atd.).
+ * Další props přeposílané do `BaseUpdateButton` (např. `children`, `className`, `title`,
+ * `item`, `uriPattern`, `onOk`, `onCancel`, atd.).
  * @returns {JSX.Element}
  */
 export const UpdateButton = ({
@@ -109,6 +122,8 @@ export const UpdateButton = ({
             DefaultContent={DefaultContent_}
             Dialog={Dialog}
             mutationAsyncAction={mutationAsyncAction_}
+            onAttributeChange={attributeTransformer}
+            onOk={payloadBuilder}
             {...permissions}
         />
     );
@@ -123,12 +138,12 @@ export const UpdateButton = ({
  *
  * @param {Object} params
  * @param {React.ComponentType<Object>} [params.DefaultContent=DefaultContent]
- *   Komponenta editovatelného obsahu (typicky MediumEditableContent).
+ * Komponenta editovatelného obsahu (typicky MediumEditableContent).
  * @param {Function} [params.mutationAsyncAction=mutationAsyncAction]
- *   Async action (thunk) pro uložení změn (např. UpdateAsyncAction).
+ * Async action (thunk) pro uložení změn (např. UpdateAsyncAction).
  * @param {Object} params.props
- *   Další props přeposílané do `BaseUpdateBody` (např. `title`, `oklabel`, `cancellabel`,
- *   `item`, `onOk`, `onCancel`, `className`, atd.).
+ * Další props přeposílané do `BaseUpdateBody` (např. `title`, `oklabel`, `cancellabel`,
+ * `item`, `onOk`, `onCancel`, `className`, atd.).
  * @returns {JSX.Element}
  */
 export const UpdateBody = ({
@@ -141,6 +156,8 @@ export const UpdateBody = ({
             {...props}
             DefaultContent={DefaultContent_}
             mutationAsyncAction={mutationAsyncAction_}
+            onAttributeChange={attributeTransformer}
+            onOk={payloadBuilder}
             {...permissions}
         />
     );

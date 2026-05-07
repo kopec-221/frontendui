@@ -89,7 +89,6 @@ fragment Role on EventGQLModel {
   }
 `
 
-
 const RBACFragmentStr = `
 fragment RBRoles on RBACObjectGQLModel {
   __typename
@@ -118,6 +117,9 @@ fragment RBRoles on RBACObjectGQLModel {
     }
   }
 }`
+
+
+
 
 // export const RoleFragment = createQueryStrLazy(`${RoleFragmentStr}`)
 export const RBACFragment = createQueryStrLazy(`${RBACFragmentStr}`)

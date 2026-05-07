@@ -23,7 +23,11 @@ export const InteractiveMutations = ({ item }) => {
             <PageLink className="btn btn-outline-success">Stránka</PageLink>
             <UpdateLink className="btn btn-outline-success" item={item}>Upravit</UpdateLink>
             <UpdateButton className="btn btn-outline-success" item={item}>Upravit Dialog</UpdateButton>
-            <CreateButton className="btn btn-outline-success" rbacitem={{}}>Vytvořit nový</CreateButton>
+            
+            {/* PŘIDÁNO PRO KALENDÁŘ: item={item}. 
+                Díky tomu CreateButton (a náš payloadBuilder) pozná ID rodiče (mastereventId) */}
+            <CreateButton className="btn btn-outline-success" item={item} rbacitem={{}}>Vytvořit nový</CreateButton>
+            
             <DeleteButton className="btn btn-outline-danger" item={item}>Odstranit</DeleteButton>
         </CardCapsule>
     )
