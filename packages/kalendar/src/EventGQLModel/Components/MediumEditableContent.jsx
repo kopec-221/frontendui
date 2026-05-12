@@ -1,6 +1,21 @@
 import { Input } from "../../../../_template/src/Base/FormControls/Input"
 
 /**
+ * Pomocná funkce pro převod ISO data z GQL do formátu pro <input type="datetime-local">
+ * Odstraní sekundy, milisekundy a zohlední lokální časovou zónu prohlížeče.
+ */
+const formatForDateTimeLocal = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // Fallback, pokud to není validní datum
+    
+    // Zohlednění časové zóny prohlížeče
+    const offset = date.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(date - offset)).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+/**
  * A component that displays medium-level content for an event entity.
  *
  * This component renders editable inputs for the event object
@@ -14,25 +29,37 @@ import { Input } from "../../../../_template/src/Base/FormControls/Input"
  * @param {React.ReactNode} [props.children=null] - Additional content to render after the serialized `item` object.
  *
  * @returns {JSX.Element} A JSX element displaying the entity's details and optional content.
- *
- * @example
- * // Example usage:
- * const eventEntity = { id: 123, name: "Sample Entity" };
- * * <MediumEditableContent item={eventEntity}>
- * <p>Additional information about the entity.</p>
- * </MediumEditableContent>
  */
-export const MediumEditableContent = ({ item, onChange=(e)=>null, onBlur=(e)=>null, children}) => {
+export const MediumEditableContent = ({ item, onChange = (e) => null, onBlur = (e) => null, children }) => {
     return (
-        <>           
+        <>          
             <Input id={"name"} label={"Jméno"} className="form-control mb-3" value={item?.name || ""} onChange={onChange} onBlur={onBlur} />
             <Input id={"nameEn"} label={"Anglický název"} className="form-control mb-3" value={item?.nameEn || ""} onChange={onChange} onBlur={onBlur} />
-            <Input id={"location"} label={"Místo"} className="form-control mb-3" value={item?.location || ""} onChange={onChange} onBlur={onBlur} />
+            
+            {/* Opraveno z "location" na "place" podle schématu EventGQLModel ve Voyageru */}
+            <Input id={"place"} label={"Místo"} className="form-control mb-3" value={item?.place || ""} onChange={onChange} onBlur={onBlur} />
+            
             <Input id={"description"} label={"Popis"} className="form-control mb-3" value={item?.description || ""} onChange={onChange} onBlur={onBlur} />
             
-            {/* type="datetime-local" zajistí, že se v prohlížeči zobrazí nativní kalendář pro výběr data a času */}
-            <Input id={"startdate"} type={"datetime-local"} label={"Začátek"} className="form-control mb-3" value={item?.startdate || ""} onChange={onChange} onBlur={onBlur} />
-            <Input id={"enddate"} type={"datetime-local"} label={"Konec"} className="form-control mb-3" value={item?.enddate || ""} onChange={onChange} onBlur={onBlur} />
+            {/* type="datetime-local" vyžaduje specifický formát (YYYY-MM-DDThh:mm), použijeme pomocnou funkci */}
+            <Input 
+                id={"startdate"} 
+                type={"datetime-local"} 
+                label={"Začátek"} 
+                className="form-control mb-3" 
+                value={formatForDateTimeLocal(item?.startdate)} 
+                onChange={onChange} 
+                onBlur={onBlur} 
+            />
+            <Input 
+                id={"enddate"} 
+                type={"datetime-local"} 
+                label={"Konec"} 
+                className="form-control mb-3" 
+                value={formatForDateTimeLocal(item?.enddate)} 
+                onChange={onChange} 
+                onBlur={onBlur} 
+            />
             
             {children}
         </>

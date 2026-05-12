@@ -1,8 +1,8 @@
-import { CardCapsule, VectorItemsURI } from "../Components"
-import { CreateButton, CreateLink } from "./Create"
-import { UpdateButton, UpdateLink } from "./Update"
-import { ProxyLink } from "../../../../_template/src/Base/Components/ProxyLink"
-import { DeleteButton } from "./Delete"
+import { CardCapsule, VectorItemsURI } from "../Components";
+import { ProxyLink } from "../../../../_template/src/Base/Components/ProxyLink";
+import { CreateButton } from "./Create";
+import { UpdateLink } from "./Update";
+import { DeleteButton } from "./Delete";
 
 export const PageLink = ({ children, preserveHash = true, preserveSearch = true, ...props }) => {
     return (
@@ -20,15 +20,34 @@ export const PageLink = ({ children, preserveHash = true, preserveSearch = true,
 export const InteractiveMutations = ({ item }) => {
     return (
         <CardCapsule item={item} title="Nástroje">
-            <PageLink className="btn btn-outline-success">Stránka</PageLink>
-            <UpdateLink className="btn btn-outline-success" item={item}>Upravit</UpdateLink>
-            <UpdateButton className="btn btn-outline-success" item={item}>Upravit Dialog</UpdateButton>
+            {/* Odkaz na detailní stránku */}
+            <PageLink className="btn btn-sm btn-outline-secondary">
+                Stránka
+            </PageLink>
             
-            {/* PŘIDÁNO PRO KALENDÁŘ: item={item}. 
-                Díky tomu CreateButton (a náš payloadBuilder) pozná ID rodiče (mastereventId) */}
-            <CreateButton className="btn btn-outline-success" item={item} rbacitem={{}}>Vytvořit nový</CreateButton>
+            {/* Otevření editačního okna */}
+            <UpdateLink className="btn btn-sm btn-outline-success" item={item}>
+                Upravit
+            </UpdateLink>
             
-            <DeleteButton className="btn btn-outline-danger" item={item}>Odstranit</DeleteButton>
+            {/* Vytvoření nové entity */}
+            <CreateButton className="btn btn-sm btn-outline-primary" item={item}>
+                Vytvořit nový
+            </CreateButton>
+            
+            {/* Smazání entity */}
+            <DeleteButton className="btn btn-sm btn-outline-danger" item={item}>
+                Odstranit
+            </DeleteButton>
+
+            {/*  NOVÉ TLAČÍTKO PRO MANUÁLNÍ REFRESH */}
+            <button 
+                className="btn btn-sm btn-outline-info" 
+                onClick={() => window.location.reload()}
+                title="Načte čerstvá data z databáze"
+            >
+                Aktualizovat
+            </button>
         </CardCapsule>
-    )
-}
+    );
+};

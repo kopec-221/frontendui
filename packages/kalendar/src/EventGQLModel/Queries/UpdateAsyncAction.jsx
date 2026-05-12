@@ -2,35 +2,28 @@ import { createQueryStrLazy } from "@hrbolek/uoisfrontend-gql-shared";
 import { createAsyncGraphQLAction2 } from "../../../../dynamic/src/Core/createAsyncGraphQLAction2";
 import { reduceToFirstEntity, updateItemsFromGraphQLResult } from "../../../../dynamic/src/Store";
 
+/**
+ * Plochá mutace bez problematických relací. 
+ * Tím se vyhneme chybě <generator> v mikroslužbě Office.
+ */
 const UpdateMutationStr = `
-mutation eventUpdate($id: UUID!, $lastchange: DateTime!, $event_name: String, $event_nameEn: String, $event_description: String, $event_startdate: DateTime, $event_enddate: DateTime) {
-  eventUpdate(event: {id: $id, lastchange: $lastchange, name: $event_name, nameEn: $event_nameEn, description: $event_description, startdate: $event_startdate, enddate: $event_enddate}) {
+mutation eventUpdate($id: UUID!, $lastchange: DateTime!, $name: String, $nameEn: String, $description: String, $startdate: DateTime, $enddate: DateTime) {
+  eventUpdate(event: {id: $id, lastchange: $lastchange, name: $name, nameEn: $nameEn, description: $description, startdate: $startdate, enddate: $enddate}) {
+    __typename
     ... on EventGQLModel { 
       __typename
       id
       lastchange
-      created
-      createdbyId
-      changedbyId
-      rbacobjectId
-      path
       name
       nameEn
       description
       startdate
       enddate
-      duration_raw
-      valid
-      place
-      facilityId
-      mastereventId
-      typeId
     }
     ... on EventGQLModelUpdateError { 
       __typename
       msg
       failed
-      code
     }
   }
 }
