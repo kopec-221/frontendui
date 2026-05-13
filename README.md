@@ -7,6 +7,7 @@
 - vyřešení problémů s permissions
 - update README.md
 - **Problémy/errory**: Nelze změnit "Místo konání", příliš pomalé zadávání změn vyhazuje Error 1, po zmáčknutí tlačítka "Aktulizovat" se ale změna uloží a error zmizí. Při "Create" po stisknutí tlačítka "OK" se nám vyhodí Error 2.
+
 Error 1
 ```
 {
