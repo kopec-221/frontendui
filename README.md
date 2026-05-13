@@ -6,14 +6,23 @@
 - zprovoznění edit/delete
 - vyřešení problémů s permissions
 - update README.md
+- **Problémy/errory**: Nelze změnit "Místo konání", příliš pomalé zadávání změn vyhazuje error (viz. přiložený kód) při auto save, po zmáčknutí tlačítka "Aktulizuj" se ale změna uloží a error zmizí.
+```
+{
+    "errors": {
+        "__typename": "EventGQLModelUpdateError",
+        "msg": "update failed",
+        "failed": true
+    }
+}
+```
 
 ## 7.5.2026
 
 - úprava Queries: DeleteAsyncAction.jsx, InsertAsyncAction.jsx, UpdateAsyncAction.jsx, Fragments.jsx
 - úprava Mutations: Create.jsx, Delete.jsx, InteractiveMutations.jsx, Update.jsx
 - úprava Components: MediumEditableContent.jsx
-
-Problémy/errory: chybějící role "Plánovací administrátor", problémy s permissions
+- **Problémy/errory**: chybějící role "Plánovací administrátor", problémy s permissions
 
 ## 28.4.2026
 
