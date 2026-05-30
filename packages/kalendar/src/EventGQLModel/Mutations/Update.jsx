@@ -8,39 +8,74 @@ import {
 import { MediumEditableContent, UpdateItemURI } from "../Components";
 import { UpdateAsyncAction } from "../Queries";
 
-// Výchozí obsah formuláře
+/**
+ * Výchozí obsah formuláře — komponenta MediumEditableContent
+ * zobrazuje inputy pro všechna editovatelná pole události
+ * (name, nameEn, place, description, startdate, enddate).
+ */
 const DefaultContent = (props) => <MediumEditableContent {...props} />;
 
-// Čisté napojení GQL akce bez zpoždění a bez automatického refreshe
 const mutationAsyncAction = UpdateAsyncAction;
 
-// Oprávnění pro zobrazení a editaci
+/**
+ * Oprávnění potřebná pro zobrazení editačních komponent.
+ * mode: "absolute" znamená že se kontrolují absolutní role uživatele
+ * (přes /me query), ne role na konkrétní entitě.
+ */
 const permissions = {
     oneOfRoles: ["plánovací administrátor"],
     mode: "absolute",
 };
 
-// Transformace klíčů formuláře pro odpovídající formát GQL mutace
+/**
+ * attributeTransformer — překládá názvy polí z formuláře na názvy
+ * které očekává GraphQL mutace.
+ *
+ * Problém: HTML input pro datetime-local posílá hodnoty pod id "startdate"
+ * (lowercase), ale GraphQL mutace eventInsert očekává "startDate" (camelCase).
+ * U eventUpdate je to naopak — očekává "startdate" (lowercase).
+ * Zde řešíme update variantu, proto překládáme jen pro jistotu opačný směr.
+ *
+ * Vše ostatní projde beze změny (id → id, name → name, atd.)
+ */
 const attributeTransformer = (id, value) => {
-    let key = id;
-    if (key === 'startDate') key = 'startdate';
-    if (key === 'endDate') key = 'enddate';
+    const keyMap = {
+        startDate: "startdate",
+        endDate:   "enddate",
+    };
+    const key = keyMap[id] ?? id;
     return { [key]: value };
 };
 
-// Zajištění odeslání povinných primárních klíčů
-const payloadBuilder = (item) => ({ 
-    id: item?.id, 
-    lastchange: item?.lastchange 
+/**
+ * payloadBuilder — sestaví základní payload který se vždy pošle spolu
+ * s formulářovými daty. Obsahuje povinné pole pro update:
+ *   id         - identifikuje který záznam měníme
+ *   lastchange - optimistický zámek (viz UpdateAsyncAction)
+ *
+ * Volá se jako onOk(item) těsně před odesláním mutace.
+ */
+const payloadBuilder = (item) => ({
+    id:         item?.id,
+    lastchange: item?.lastchange,
 });
 
-// Exportované komponenty s pojistkami proti chybějícím datům
-
+/**
+ * UpdateLink — odkaz na editační stránku entity.
+ * Generuje URL ve tvaru /kalendar/EventGQLModel/edit/:id
+ * Zobrazí se jen pokud má uživatel potřebnou roli.
+ */
 export const UpdateLink = ({ uriPattern = UpdateItemURI, item, ...props }) => {
-    if (!item) return null; 
+    if (!item) return null;
     return <BaseUpdateLink {...props} item={item} uriPattern={uriPattern} {...permissions} />;
 };
 
+/**
+ * UpdateDialog — modální dialog s editačním formulářem.
+ * Otevře se jako overlay nad aktuální stránkou.
+ * Komponenty Dialog, DefaultContent a mutationAsyncAction lze přepsat
+ * přes props pro customizaci chování.
+ */
 export const UpdateDialog = ({
     DefaultContent: DefaultContent_ = DefaultContent,
     mutationAsyncAction: mutationAsyncAction_ = mutationAsyncAction,
@@ -61,6 +96,10 @@ export const UpdateDialog = ({
     );
 };
 
+/**
+ * UpdateButton — tlačítko které po kliknutí otevře UpdateDialog.
+ * Typicky se zobrazuje v InteractiveMutations (panel nástrojů na detail stránce).
+ */
 export const UpdateButton = ({
     DefaultContent: DefaultContent_ = DefaultContent,
     Dialog = UpdateDialog,
@@ -83,6 +122,11 @@ export const UpdateButton = ({
     );
 };
 
+/**
+ * UpdateBody — inline formulář bez dialogu, přímo vložený do stránky.
+ * Používá ho PageUpdateItem (/edit/:id route) kde je editace hlavním
+ * účelem celé stránky, ne jen doplňková akce.
+ */
 export const UpdateBody = ({
     DefaultContent: DefaultContent_ = DefaultContent,
     mutationAsyncAction: mutationAsyncAction_ = mutationAsyncAction,

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncThunkAction } from "./useAsyncThunkAction";
 
-// jednoduchý shallowEqual (stejný jako u vás)
 const shallowEqual = (a, b) => {
     if (a === b) return true;
     if (!a || !b) return false;
@@ -13,17 +12,15 @@ const shallowEqual = (a, b) => {
 };
 
 /**
- * useEditAction
- *
- * @param {Function} AsyncAction - thunk z createAsyncGraphQLAction2(...) (mutation/query)
- * @param {object} vars          - typicky {id} nebo cokoliv, co potřebuje useAsyncThunkAction k entity
- * @param {object} options
- *  - mode: "live" | "confirm"
- *  - delayMs: number (jen pro live)
- *  - deferred, network: předáno do useAsyncThunkAction
- *  - mapDraftToVars: (draft, ctx) => object   // jak převést draft na vars pro run()
- *  - commitOnBlur: boolean (jen pro live; default true)
+ * Vrátí true, pokud je výsledek z backendu GQL chybový stav (Error union type).
+ * Typicky: EventGQLModelUpdateError, EventGQLModelInsertError apod.
  */
+const isGQLError = (result) => {
+    if (!result || typeof result !== "object") return false;
+    const typename = result.__typename ?? "";
+    return typename.endsWith("Error") || result.failed === true;
+};
+
 export const useEditAction = (
     AsyncAction,
     item,
@@ -32,11 +29,9 @@ export const useEditAction = (
     const {
         mode = "confirm",
         delayMs = 600,
-        // deferred = true,
-        // network = true,
         mapDraftToVars,
         commitOnBlur = true,
-        onCommit=()=>null,
+        onCommit = (nextDraft, result) => null,
     } = options;
 
     if (typeof AsyncAction !== "function") {
@@ -49,70 +44,132 @@ export const useEditAction = (
         { deferred: true, network: true }
     );
 
-    // baseline = poslední "uložený" stav (primárně z entity)
     const [baseline, setBaseline] = useState(item || {});
     const [draft, setDraft] = useState(item || {});
-    
 
-    // reset lokálního stavu při změně entity (jiné id / refetch / update ze store)
     useEffect(() => {
         const next = item || {};
         setBaseline(next);
         setDraft(next);
-    }, [entity]);
+    }, [entity, item]);
 
     const dirty = useMemo(() => !shallowEqual(draft, baseline), [draft, baseline]);
-
-    // debouncing pro live
-    const timerRef = useRef(null);
-    const clearTimer = () => {
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-        }
-    };
-
-    useEffect(() => () => clearTimer(), []);
 
     const toVars = useCallback(
         (d) => {
             if (typeof mapDraftToVars === "function") {
                 return mapDraftToVars(d, { entity, item });
             }
-            // default: pošli draft jako vars (často stačí, ale můžeš přepsat mapDraftToVars)
             return d;
         },
         [mapDraftToVars, entity, item]
     );
 
-    const commitNow = useCallback(
-        async (nextDraft) => {
-            console.log("useEditAction commitNow", dirty, nextDraft);
-            // posíláme přes run() -> thunk -> gqlClient.request(...)
-            const result = await run(toVars(nextDraft));
-            // po úspěchu nastav baseline; entity se stejně typicky aktualizuje přes middleware do store
-            // setBaseline(nextDraft);
-            onCommit(nextDraft, result);
-            // setDraft(nextDraft)
+    // Serializace commitů – fix pro concurrent update / lastchange race condition
+    const inFlightPromiseRef = useRef(null);
+    const queuedDraftRef = useRef(null);
+
+    // Vždy nejaktuálnější lastchange – aktualizuje se jen po ÚSPĚŠNÉM commitu
+    const latestLastchangeRef = useRef(item?.lastchange ?? null);
+
+    // Synchronizuj lastchange ref při změně item zvenku (např. první načtení entity)
+    useEffect(() => {
+        if (item?.lastchange) {
+            latestLastchangeRef.current = item.lastchange;
+        }
+    }, [item?.lastchange]);
+
+    const commitNow = useCallback((nextDraft) => {
+        // Pokud letí request, zapamatuj nový draft a vrať stávající promise
+        if (inFlightPromiseRef.current) {
+            queuedDraftRef.current = nextDraft;
+            setDraft(nextDraft);
+            return inFlightPromiseRef.current;
+        }
+
+        const executeCommit = async (rawDraft) => {
+            const draftToSend = {
+                ...rawDraft,
+                lastchange: latestLastchangeRef.current ?? rawDraft?.lastchange,
+            };
+
+            console.log("useEditAction.commitNow send lastchange:", draftToSend?.lastchange);
+
+            const result = await run(toVars(draftToSend));
+
+            console.log("useEditAction.commitNow receive:", result?.__typename, "lastchange:", result?.lastchange);
+
+            // Pokud backend vrátil chybový stav, NEAKTUALIZUJ lastchange ani draft
+            if (isGQLError(result)) {
+                console.warn("useEditAction.commitNow: backend vrátil chybu, lastchange se nemění", result);
+                throw Object.assign(
+                    new Error(`GQL mutation error: ${result?.msg ?? result?.__typename}`),
+                    { gqlError: result }
+                );
+            }
+
+            const savedDraft = {
+                ...draftToSend,
+                ...result,
+                lastchange: result?.lastchange ?? draftToSend?.lastchange,
+            };
+
+            // Aktualizuj lastchange až po úspěšném commitu
+            latestLastchangeRef.current = savedDraft.lastchange;
+
+            onCommit(savedDraft, result);
+            setBaseline(savedDraft);
+            setDraft(savedDraft);
+
             return result;
-        },
-        [run, toVars]
-    );
+        };
+
+        const promise = (async () => {
+            let result = await executeCommit(nextDraft);
+
+            // Zpracuj drafty, které přišly v průběhu in-flight requestu
+            while (queuedDraftRef.current) {
+                const queuedDraft = queuedDraftRef.current;
+                queuedDraftRef.current = null;
+
+                const nextQueuedDraft = {
+                    ...queuedDraft,
+                    lastchange: latestLastchangeRef.current,
+                };
+
+                result = await executeCommit(nextQueuedDraft);
+            }
+
+            return result;
+        })().finally(() => {
+            inFlightPromiseRef.current = null;
+        });
+
+        inFlightPromiseRef.current = promise;
+        return promise;
+    }, [run, toVars, onCommit]);
+
+    // Debouncing pro live mode
+    const timerRef = useRef(null);
+    const clearTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => () => clearTimer(), [clearTimer]);
 
     const scheduleCommit = useCallback(
         (nextDraft) => {
-            // console.log("useEditAction scheduleCommit delayMs", nextDraft, delayMs);
             clearTimer();
             timerRef.current = setTimeout(() => {
-                commitNow(nextDraft).catch(() => {
-                    // error už je v hook state; nic dalšího tady nedělej
-                });
+                commitNow(nextDraft).catch(() => {});
             }, delayMs);
         },
-        [commitNow, delayMs]
+        [commitNow, delayMs, clearTimer]
     );
 
-    // onChange kompatibilní s vaším stylem (input event / nebo celý objekt v target.value)
     const onChange = useCallback(
         (e) => {
             const fieldId = e?.target?.id;
@@ -141,40 +198,36 @@ export const useEditAction = (
         clearTimer();
         if (!dirty) return null;
         return commitNow(draft);
-    }, [mode, commitOnBlur, dirty, draft, commitNow]);
+    }, [mode, commitOnBlur, dirty, draft, commitNow, clearTimer]);
 
     const onCancel = useCallback(() => {
         clearTimer();
         setDraft(baseline || {});
-    }, [baseline]);
+    }, [baseline, clearTimer]);
 
     const onConfirm = useCallback(async () => {
         clearTimer();
         if (!dirty) return null;
         return commitNow(draft);
-    }, [dirty, draft, commitNow]);
+    }, [dirty, draft, commitNow, clearTimer]);
 
     return {
-        // data
-        entity, // the latest entity from useAsyncThunkAction
-        baseline, // last saved state
-        draft, // current edited state
-        setDraft, // direct draft setter
+        entity,
+        baseline,
+        draft,
+        setDraft,
 
-        // state
         dirty,
         loading,
         error,
         data,
 
-        // handlers
         onChange,
         onBlur,
         onCancel,
         onConfirm,
 
-        // low-level
-        run,        // kdybys chtěl ruční override
-        commitNow,  // immediate commit draft
+        run,
+        commitNow,
     };
 };

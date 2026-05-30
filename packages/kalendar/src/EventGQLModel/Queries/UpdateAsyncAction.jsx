@@ -3,14 +3,43 @@ import { createAsyncGraphQLAction2 } from "../../../../dynamic/src/Core/createAs
 import { reduceToFirstEntity, updateItemsFromGraphQLResult } from "../../../../dynamic/src/Store";
 
 /**
- * Plochá mutace bez problematických relací. 
- * Tím se vyhneme chybě <generator> v mikroslužbě Office.
+ * GraphQL mutace pro aktualizaci existující události.
+ *
+ * Parametry:
+ *   $id          - UUID události kterou chceme upravit (povinné)
+ *   $lastchange  - timestamp poslední změny (povinné, slouží jako optimistický zámek
+ *                  aby dva uživatelé nepřepsali navzájem své změny)
+ *   $name        - nový název události (volitelné)
+ *   $nameEn      - nový anglický název (volitelné)
+ *   $description - nový popis (volitelné)
+ *   $startdate   - nové datum začátku (volitelné)
+ *   $enddate     - nové datum konce (volitelné)
+ *
+ * API vrací union type:
+ *   EventGQLModel            - úspěch, vrátí upravenou entitu
+ *   EventGQLModelUpdateError - chyba (např. záznam mezitím někdo jiný změnil)
  */
 const UpdateMutationStr = `
-mutation eventUpdate($id: UUID!, $lastchange: DateTime!, $name: String, $nameEn: String, $description: String, $startdate: DateTime, $enddate: DateTime) {
-  eventUpdate(event: {id: $id, lastchange: $lastchange, name: $name, nameEn: $nameEn, description: $description, startdate: $startdate, enddate: $enddate}) {
+mutation eventUpdate(
+  $id: UUID!,
+  $lastchange: DateTime!,
+  $name: String,
+  $nameEn: String,
+  $description: String,
+  $startdate: DateTime,
+  $enddate: DateTime
+) {
+  eventUpdate(event: {
+    id: $id,
+    lastchange: $lastchange,
+    name: $name,
+    nameEn: $nameEn,
+    description: $description,
+    startdate: $startdate,
+    enddate: $enddate
+  }) {
     __typename
-    ... on EventGQLModel { 
+    ... on EventGQLModel {
       __typename
       id
       lastchange
@@ -20,7 +49,7 @@ mutation eventUpdate($id: UUID!, $lastchange: DateTime!, $name: String, $nameEn:
       startdate
       enddate
     }
-    ... on EventGQLModelUpdateError { 
+    ... on EventGQLModelUpdateError {
       __typename
       msg
       failed
@@ -29,10 +58,27 @@ mutation eventUpdate($id: UUID!, $lastchange: DateTime!, $name: String, $nameEn:
 }
 `;
 
+/**
+ * createQueryStrLazy — "líná" funkce která drží query string a sestaví
+ * ho až při prvním zavolání. Umožňuje skládání fragmentů napříč soubory.
+ */
 const UpdateMutation = createQueryStrLazy(`${UpdateMutationStr}`);
 
+/**
+ * UpdateAsyncAction — Redux thunk akce pro odeslání update mutace.
+ *
+ * Jak funguje middleware chain:
+ *   1. createAsyncGraphQLAction2 odešle HTTP request na GraphQL endpoint
+ *   2. updateItemsFromGraphQLResult — projde odpověď a uloží všechny
+ *      nalezené entity (objekty s id + __typename) do Redux store
+ *   3. reduceToFirstEntity — z odpovědi vytáhne první entitu a vrátí ji
+ *      jako výsledek akce (aby volající mohl pracovat s updatovaným objektem)
+ *
+ * Použití:
+ *   dispatch(UpdateAsyncAction({ id, lastchange, name, ... }, gqlClient))
+ */
 export const UpdateAsyncAction = createAsyncGraphQLAction2(
-  UpdateMutation, 
-  updateItemsFromGraphQLResult, 
+  UpdateMutation,
+  updateItemsFromGraphQLResult,
   reduceToFirstEntity
 );

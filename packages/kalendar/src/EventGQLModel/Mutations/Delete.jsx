@@ -1,88 +1,121 @@
-import { DeleteItemURI, ListURI, MediumContent, VectorItemsURI } from "../Components";
+import { DeleteItemURI, ListURI, MediumContent } from "../Components";
 import { DeleteAsyncAction } from "../Queries";
-import { 
-    DeleteBody as BaseDeleteBody, 
-    DeleteButton as BaseDeleteButton, 
-    DeleteDialog as BaseDeleteDialog, 
+import {
+    DeleteBody as BaseDeleteBody,
+    DeleteButton as BaseDeleteButton,
+    DeleteDialog as BaseDeleteDialog,
     DeleteLink as BaseDeleteLink
 } from "../../../../_template/src/Base/Mutations/Delete";
 
-const DefaultContent = MediumContent;
+/**
+ * Výchozí obsah potvrzovacího dialogu.
+ * Zobrazí detail události + varování pokud má pod-události.
+ */
+const DefaultContent = ({ item, ...props }) => {
+    const subeventsCount = item?.subevents?.length ?? 0;
 
-// 🔗 OPRAVENÝ WRAPPER: Propouštíme payload i systémového GQL klienta
+    return (
+        <>
+            <MediumContent item={item} {...props} />
+            {subeventsCount > 0 && (
+                <div className="alert alert-danger mt-3">
+                    <strong>Nelze smazat!</strong> Tato událost má {subeventsCount} pod-událost{subeventsCount === 1 ? "" : subeventsCount < 5 ? "i" : "í"}.
+                    Nejdřív smažte všechny pod-události.
+                </div>
+            )}
+        </>
+    );
+};
+
+/**
+ * SafeDeleteAsyncAction — wrapper který:
+ * 1. Zkontroluje zda událost nemá pod-události
+ * 2. Pokud má, hodí chybu před odesláním na API
+ * 3. Pokud nemá, pošle jen { id, lastchange }
+ */
 const SafeDeleteAsyncAction = (item, ...rest) => {
+    const subeventsCount = item?.subevents?.length ?? 0;
+    if (subeventsCount > 0) {
+        // Vrátíme thunk který okamžitě hodí chybu — nedostane se na API
+        return async () => {
+            throw new Error(
+                `Nelze smazat událost která má ${subeventsCount} pod-událostí. Nejdřív smažte pod-události.`
+            );
+        };
+    }
+
     const payload = {
-        id: item?.id,
-        lastchange: item?.lastchange
+        id:         item?.id,
+        lastchange: item?.lastchange,
     };
-    // Předáváme payload a všechny ostatní parametry (včetně klienta) dál
     return DeleteAsyncAction(payload, ...rest);
 };
 
 const MutationAsyncAction = SafeDeleteAsyncAction;
 
-// Správná RBAC role vyžadovaná backendem
+/**
+ * Oprávnění — role potřebná pro smazání.
+ * mode: "absolute" = kontrola přes globální role uživatele.
+ */
 const permissions = {
     oneOfRoles: ["plánovací administrátor"],
     mode: "absolute",
 };
 
-// ... (zbytek souboru s exporty DeleteLink, DeleteDialog atd. zůstává beze změny)
-
-// Exportované komponenty s defenzivními pojistkami
-
-export const DeleteLink = ({ 
-    uriPattern = DeleteItemURI,
-    item,
-    ...props
-}) => {
+/**
+ * DeleteLink — odkaz na stránku pro smazání entity.
+ * Generuje URL /kalendar/EventGQLModel/delete/:id
+ */
+export const DeleteLink = ({ uriPattern = DeleteItemURI, item, ...props }) => {
     if (!item) return null;
     return (
-        <BaseDeleteLink 
-            {...props} 
-            item={item}
-            uriPattern={uriPattern} 
-            {...permissions}
-        />
+        <BaseDeleteLink {...props} item={item} uriPattern={uriPattern} {...permissions} />
     );
 };
 
+/**
+ * DeleteDialog — modální potvrzovací dialog.
+ * Zobrazí varování pokud má událost pod-události.
+ * Po potvrzení přesměruje na seznam (vectorItemsURI).
+ */
 export const DeleteDialog = ({
     mutationAsyncAction = MutationAsyncAction,
     DefaultContent: DefaultContent_ = DefaultContent,
     vectorItemsURI = ListURI,
     item,
-    ...props 
+    ...props
 }) => {
     if (!item) return null;
     return (
-        <BaseDeleteDialog 
-            {...props} 
+        <BaseDeleteDialog
+            {...props}
             item={item}
-            DefaultContent={DefaultContent_} 
+            DefaultContent={DefaultContent_}
             mutationAsyncAction={mutationAsyncAction}
             vectorItemsURI={vectorItemsURI}
-            // onOk je záměrně vynecháno, aby Base implementace nativně
-            // přesměrovala uživatele na vectorItemsURI (seznam) po úspěšném smazání.
             {...permissions}
         />
     );
 };
 
+/**
+ * DeleteButton — tlačítko které otevře DeleteDialog.
+ * Zobrazuje se v InteractiveMutations na detail stránce.
+ */
 export const DeleteButton = ({
     mutationAsyncAction = MutationAsyncAction,
     DefaultContent: DefaultContent_ = DefaultContent,
     Dialog = DeleteDialog,
     vectorItemsURI = ListURI,
     item,
-    ...props 
+    ...props
 }) => {
     if (!item) return null;
     return (
-        <BaseDeleteButton 
-            {...props} 
+        <BaseDeleteButton
+            {...props}
             item={item}
-            DefaultContent={DefaultContent_} 
+            DefaultContent={DefaultContent_}
             Dialog={Dialog}
             mutationAsyncAction={mutationAsyncAction}
             vectorItemsURI={vectorItemsURI}
@@ -91,7 +124,11 @@ export const DeleteButton = ({
     );
 };
 
-export const DeleteBody = ({ 
+/**
+ * DeleteBody — inline potvrzení smazání na stránce /delete/:id
+ * Po úspěšném smazání přesměruje na seznam.
+ */
+export const DeleteBody = ({
     mutationAsyncAction = MutationAsyncAction,
     DefaultContent: DefaultContent_ = DefaultContent,
     vectorItemsURI = ListURI,
@@ -100,10 +137,10 @@ export const DeleteBody = ({
 }) => {
     if (!item) return null;
     return (
-        <BaseDeleteBody 
-            {...props} 
+        <BaseDeleteBody
+            {...props}
             item={item}
-            DefaultContent={DefaultContent_} 
+            DefaultContent={DefaultContent_}
             mutationAsyncAction={mutationAsyncAction}
             vectorItemsURI={vectorItemsURI}
             {...permissions}
