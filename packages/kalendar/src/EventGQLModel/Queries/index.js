@@ -1,6 +1,11 @@
-
-export { InsertAsyncAction } from './InsertAsyncAction'
-export { UpdateAsyncAction } from './UpdateAsyncAction'
-export { DeleteAsyncAction } from './DeleteAsyncAction'
-export { ReadAsyncAction } from './ReadAsyncAction'
-export { ReadPageAsyncAction } from './ReadPageAsyncAction'
+/**
+ * Barrel export pro Queries složku.
+ * Exportuje všechny async actions na jedno místo.
+ */
+export * from './ReadAsyncAction'
+export * from './ReadPageAsyncAction'
+export * from './UpdateAsyncAction'
+export * from './InsertAsyncAction'
+export * from './DeleteAsyncAction'
+export * from './CreatePlanAsyncAction'
+export * from './Fragments'

@@ -1,5 +1,9 @@
 import { createQueryStrLazy } from "@hrbolek/uoisfrontend-gql-shared"
 
+/**
+ * LinkFragment — minimální data pro zobrazení odkazu na událost.
+ * Obsahuje jen základní skalární pole bez relací.
+ */
 const LinkFragmentStr = `
 fragment Link on EventGQLModel {
   __typename
@@ -24,6 +28,10 @@ fragment Link on EventGQLModel {
 }
 `
 
+/**
+ * MediumFragment — rozšiřuje Link o popis a RBAC role.
+ * Používá se pro zobrazení v kartách a tabulkách.
+ */
 const MediumFragmentStr = `
 fragment Medium on EventGQLModel {
   ...Link
@@ -37,6 +45,14 @@ fragment Medium on EventGQLModel {
 }
 `
 
+/**
+ * LargeFragment — plná data události včetně relací.
+ * Používá se na detail stránce.
+ * 
+ * POZOR: User fragment záměrně NEobsahuje "invitations" ani "studies" —
+ * backend mikroslužba "office" má bug kde vrací Python <generator>
+ * místo pole pro invitations, což způsobuje chybu celého requestu.
+ */
 const LargeFragmentStr = `
 fragment Large on EventGQLModel {
   ...Medium
@@ -64,31 +80,10 @@ fragment Large on EventGQLModel {
 }
 `
 
-const RoleFragmentStr = `
-fragment Role on EventGQLModel {
-    __typename
-    id
-    lastchange
-    created
-    createdbyId
-    changedbyId
-    rbacobjectId
-    createdby { id __typename }
-    changedby { id __typename }
-    rbacobject { id __typename }
-    valid
-    deputy
-    startdate
-    enddate
-    roletypeId
-    userId
-    groupId
-    roletype { __typename id }
-    user { __typename id fullname }
-    group { __typename id name }
-  }
-`
-
+/**
+ * RBACFragment — role aktuálního uživatele na entitě.
+ * Používá se pro kontrolu oprávnění (může editovat/mazat?).
+ */
 const RBACFragmentStr = `
 fragment RBRoles on RBACObjectGQLModel {
   __typename
@@ -118,13 +113,8 @@ fragment RBRoles on RBACObjectGQLModel {
   }
 }`
 
-
-
-
-// export const RoleFragment = createQueryStrLazy(`${RoleFragmentStr}`)
 export const RBACFragment = createQueryStrLazy(`${RBACFragmentStr}`)
 
 export const LinkFragment = createQueryStrLazy(`${LinkFragmentStr}`)
 export const MediumFragment = createQueryStrLazy(`${MediumFragmentStr}`, LinkFragment, RBACFragment)
 export const LargeFragment = createQueryStrLazy(`${LargeFragmentStr}`, MediumFragment)
-  

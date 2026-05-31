@@ -1,46 +1,48 @@
-// import Row from "react-bootstrap/Row"
-import { MediumCard } from "./MediumCard"
-import { CardCapsule as CardCapsule_} from "./CardCapsule"
+import { CardCapsule as CardCapsule_ } from "./CardCapsule"
 import { Row } from "../../../../_template/src/Base/Components/Row"
-// import { LeftColumn, MiddleColumn } from "@hrbolek/uoisfrontend-shared"
 import { MediumContent as MediumContent_ } from "./MediumContent"
+import { LiveEdit } from "./LiveEdit"
 import { InteractiveMutations } from '../Mutations/InteractiveMutations'
 import { LeftColumn, MiddleColumn } from "../../../../_template/src/Base/Components/Col"
+
 /**
- * A large card component for displaying detailed content and layout for an template entity.
+ * LargeCard — hlavní layout komponenta pro detail stránku události.
  *
- * This component wraps an `TemplateCardCapsule` with a flexible layout that includes multiple
- * columns. It uses a `Row` layout with a `LeftColumn` for displaying an `TemplateMediumCard`
- * and a `MiddleColumn` for rendering additional children.
+ * Struktura:
+ *   LeftColumn  — LiveEdit (editovatelné inputy) + InteractiveMutations (tlačítka)
+ *   MiddleColumn — children (obsah předaný z PageReadItem/SubPage)
  *
- * @component
- * @param {Object} props - The properties for the TemplateLargeCard component.
- * @param {Object} props.template - The object representing the template entity.
- * @param {string|number} props.template.id - The unique identifier for the template entity.
- * @param {string} props.template.name - The name or label of the template entity.
- * @param {React.ReactNode} [props.children=null] - Additional content to render in the middle column.
- *
- * @returns {JSX.Element} A JSX element combining a large card layout with dynamic content.
- *
- * @example
- * // Example usage:
- * const templateEntity = { id: 123, name: "Sample Entity" };
- * 
- * <TemplateLargeCard template={templateEntity}>
- *   <p>Additional content for the middle column.</p>
- * </TemplateLargeCard>
+ * Proč children a ne přímo SubeventsVector + MediumCardScalars:
+ *   Obsah MiddleColumn řídí SubPage komponenta předaná z PageReadItem.
+ *   Tím lze různé stránky (read, edit, roles...) zobrazit různý obsah
+ *   bez nutnosti měnit LargeCard.
  */
-export const LargeCard = ({ item, children, CardCapsule=CardCapsule_, MediumContent=MediumContent_ }) => {
-    // console.log("LargeCard.item", item)
+export const LargeCard = ({
+    item,
+    children,
+    CardCapsule = CardCapsule_,
+    MediumContent = MediumContent_
+}) => {
     return (
-        <CardCapsule item={item} >
+        <CardCapsule item={item}>
             <Row>
+                {/*
+                 * LeftColumn — editovatelný detail a akční tlačítka.
+                 * LiveEdit zobrazí inputy pro všechna skalární pole.
+                 * Změny se ukládají automaticky při opuštění pole (onBlur).
+                 */}
                 <LeftColumn>
                     <CardCapsule item={item} title="Detail">
-                        <MediumContent item={item} />
+                        <LiveEdit item={item} />
                     </CardCapsule>
                     <InteractiveMutations item={item} />
                 </LeftColumn>
+
+                {/*
+                 * MiddleColumn — obsah z SubPage komponenty.
+                 * V PageReadItem je SubPage=EventSubPage která zobrazí
+                 * SubeventsVector + Tree + MediumCardScalars + MediumCardVectors.
+                 */}
                 <MiddleColumn>
                     {children}
                 </MiddleColumn>
