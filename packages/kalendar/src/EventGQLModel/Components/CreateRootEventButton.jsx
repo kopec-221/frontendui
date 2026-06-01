@@ -84,7 +84,7 @@ export const CreateRootEventButton = () => {
 
     return (
         <div className="card p-3" style={{ maxWidth: "400px" }}>
-            <h6 className="mb-3">Nová kořenová událost</h6>
+            <h6 className="mb-3">Nová událost</h6>
 
             {!rbacobjectId && (
                 <div className="alert alert-warning py-2 small mb-3">

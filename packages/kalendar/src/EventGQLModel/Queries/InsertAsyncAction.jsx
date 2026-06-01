@@ -15,8 +15,7 @@ import { LargeFragment } from "./Fragments";
  *   $endDate       - datum konce (camelCase D)
  *   $subevents     - seznam pod-událostí
  *
- * Používá LargeFragment ze sdíleného Fragments.jsx který neobsahuje
- * "invitations" — ty způsobovaly chybu backendu (Python generator bug).
+ * Používá LargeFragment který neobsahuje invitations (backend bug).
  */
 const InsertMutationStr = `
 mutation eventInsert(
@@ -54,11 +53,4 @@ mutation eventInsert(
 
 const InsertMutation = createQueryStrLazy(`${InsertMutationStr}`, LargeFragment);
 
-/**
- * InsertAsyncAction — Redux thunk akce tvaru:
- * (vars, gqlClient) => async (dispatch, getState, next) => result
- *
- * Volá se přes dispatch(InsertAsyncAction(payload, gqlClient))
- * nebo přes useAsyncThunkAction hook.
- */
 export const InsertAsyncAction = createAsyncGraphQLAction2(InsertMutation);
