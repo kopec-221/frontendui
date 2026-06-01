@@ -132,7 +132,7 @@ const EventPill = ({ event, color }) => {
  *   events     - pole eventů pro tento den
  *   maxVisible - maximální počet zobrazených eventů (zbytek schoveme za "+N další")
  */
-const CalendarCell = ({ day, isToday, isOtherMonth, events, maxVisible = 2 }) => {
+const CalendarCell = ({ day, isToday, isOtherMonth, events, maxVisible = 4 }) => {
     const visibleEvents = events.slice(0, maxVisible)
     const hiddenCount = events.length - maxVisible
 
