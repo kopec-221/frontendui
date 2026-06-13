@@ -8,7 +8,6 @@ import { useSearchParams } from "react-router"
 import { useEffect, useMemo } from "react"
 import { AsyncStateIndicator } from "../../../../_template/src/Base/Helpers/AsyncStateIndicator"
 import { Collapsible } from "../../../../_template/src/Base/FormControls/Collapsible"
-import { CreateRootEventButton } from "../Components/CreateRootEventButton"
 
 /**
  * safeParseWhere — bezpečně parsuje JSON where filtr z URL query parametru.
@@ -60,11 +59,6 @@ export const PageVector = ({ children, queryAsyncAction = ReadPageAsyncAction })
 
     return (
         <PageBase>
-            {/* Tlačítko pro vytvoření nové kořenové události */}
-            <div className="mb-3 px-3 pt-3">
-                <CreateRootEventButton />
-            </div>
-
             {/* Skrývatelný filtrační panel */}
             <Collapsible
                 className="form-control btn btn-outline-primary"

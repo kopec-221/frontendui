@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { ReadItemURI } from "../Components"
-import { CreateRootEventButton } from "./CreateRootEventButton"
+
 
 const DAYS_CZ = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"]
 const MONTHS_CZ = [
@@ -10,32 +10,27 @@ const MONTHS_CZ = [
 ]
 
 /**
- * EVENT_COLORS — paleta barev pro eventy.
- * Každý event dostane barvu podle svého id (hash) — vždy stejnou barvu.
+ * Bootstrap třídy pro barvy eventů.
+ * Každý event dostane třídu podle svého id (hash).
+ * Používáme Bootstrap badge/bg varianty.
  */
-const EVENT_COLORS = [
-    { bg: "#FDE68A", text: "#78350F" },  // žlutá
-    { bg: "#B5D4F4", text: "#0C447C" },  // modrá
-    { bg: "#9FE1CB", text: "#085041" },  // zelená
-    { bg: "#F5C4B3", text: "#712B13" },  // oranžová
-    { bg: "#CECBF6", text: "#3C3489" },  // fialová
-    { bg: "#FCA5A5", text: "#7F1D1D" },  // červená
-    { bg: "#86EFAC", text: "#14532D" },  // tmavě zelená
-    { bg: "#93C5FD", text: "#1E3A5F" },  // tmavě modrá
+const EVENT_COLOR_CLASSES = [
+    "bg-warning text-dark",
+    "bg-primary text-white",
+    "bg-success text-white",
+    "bg-danger text-white",
+    "bg-info text-dark",
+    "bg-secondary text-white",
 ]
 
 /**
- * getColorForEvent — každý event dostane barvu podle svého id.
+ * getColorClassForEvent — vrátí Bootstrap třídy pro barvu eventu.
  * Hash z id zajistí že stejný event má vždy stejnou barvu napříč dny.
- *
- * @param {Object} event - EventGQLModel
- * @returns {{ bg, text }} barvy
  */
-const getColorForEvent = (event) => {
-    if (!event?.id) return EVENT_COLORS[0]
-    // Součet ASCII hodnot znaků id → index do palety
+const getColorClassForEvent = (event) => {
+    if (!event?.id) return EVENT_COLOR_CLASSES[0]
     const hash = event.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
-    return EVENT_COLORS[hash % EVENT_COLORS.length]
+    return EVENT_COLOR_CLASSES[hash % EVENT_COLOR_CLASSES.length]
 }
 
 /**
@@ -68,12 +63,13 @@ const getEventsForDay = (events, year, month, day) => {
  *
  * Vizuální logika pro multi-day eventy:
  *   První den  → zaoblené rohy vlevo, zobrazí čas + název
- *   Prostřední → žádné zaoblení, šipka →
- *   Poslední   → zaoblené rohy vpravo, šipka →
+ *   Prostřední → žádné zaoblení
+ *   Poslední   → zaoblené rohy vpravo
  *
- * Tím vznikne iluze kontinuálního bločku přes více dní.
+ * Inline style zůstává jen pro border-radius (Bootstrap nemá jednostranné zaoblení)
+ * a pro overflow/whitespace které Bootstrap nemá jako utility třídy.
  */
-const EventPill = ({ event, color, isFirstDay, isLastDay }) => {
+const EventPill = ({ event, colorClass, isFirstDay, isLastDay }) => {
     const navigate = useNavigate()
 
     const handleClick = (e) => {
@@ -85,11 +81,16 @@ const EventPill = ({ event, color, isFirstDay, isLastDay }) => {
     const endTime = formatTime(event.enddate)
 
     /**
-     * Label podle pozice eventu v multi-day rozsahu:
-     *   Jednodení      → "08:00–09:30 Název"
-     *   První den      → "08:00 Název →"
-     *   Prostřední den → "→ Název →"
-     *   Poslední den   → "→ Název 09:30"
+     * label — text který se zobrazí uvnitř bločku eventu v kalendáři.
+     *
+     * Rozhoduje co zobrazit podle toho kde v multi-day rozsahu se buňka nachází.
+     * Používá ternární operátory (podmínka ? "true" : "false") místo if/else.
+     * Používá template literals (`${proměnná}`) pro vkládání hodnot do stringu.
+     *
+     * Vysvětlení použitých vzorů:
+     *   isFirstDay && isLastDay   = event trvá jen jeden den
+     *   startTime ? x + " " : "" = pokud čas existuje, přidej ho + mezeru, jinak nic
+     *   event.name || "—"        = použij název, nebo "—" pokud název chybí
      */
     const label = isFirstDay && isLastDay
         ? (startTime && endTime
@@ -98,42 +99,32 @@ const EventPill = ({ event, color, isFirstDay, isLastDay }) => {
                 ? `${startTime} ${event.name || "—"}`
                 : event.name || "—")
         : isFirstDay
-            ? `${startTime ? startTime + " " : ""}${event.name || "—"}`
+            ? `${startTime ? startTime + " " : ""}${event.name || "—"} →`
             : isLastDay
-                ? `${endTime ? endTime + " " : ""}${event.name || "—"}`
-                : `${event.name || "—"}`
+                ? `→ ${event.name || "—"}${endTime ? " " + endTime : ""}`
+                : `→ ${event.name || "—"} →`
 
-    // Zaoblení rohů podle pozice v multi-day eventu
-    const borderRadius = isFirstDay && isLastDay
-        ? "4px"                          // jen v jeden den — plně zaoblený
-        : isFirstDay
-            ? "4px 0 0 4px"              // první den — zaoblené vlevo
-            : isLastDay
-                ? "0 4px 4px 0"          // poslední den — zaoblené vpravo
-                : "0"                    // prostřední — bez zaoblení
-
-    // Margin pro kontinuální vzhled — první a poslední den mají malý margin
-    const marginLeft = isFirstDay ? "2px" : "0"
-    const marginRight = isLastDay ? "2px" : "0"
+    /**
+     * borderRadius — inline style jen pro jednostranné zaoblení.
+     * Bootstrap nemá utility třídy pro zaoblení jen jedné strany.
+     */
+    const borderRadius = isFirstDay && isLastDay ? "4px"
+        : isFirstDay ? "4px 0 0 4px"
+        : isLastDay ? "0 4px 4px 0"
+        : "0"
 
     return (
         <div
             onClick={handleClick}
             title={`${event.name}${startTime ? ` (${startTime}${endTime ? `–${endTime}` : ""})` : ""}`}
+            className={`${colorClass} mb-1 px-1 small fw-medium`}
             style={{
-                backgroundColor: color.bg,
-                color: color.text,
-                fontSize: "11px",
-                padding: "2px 5px",
                 borderRadius,
-                marginBottom: "2px",
-                marginLeft,
-                marginRight,
-                whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
                 cursor: "pointer",
-                fontWeight: 500,
+                fontSize: "11px",
             }}
         >
             {label}
@@ -143,34 +134,27 @@ const EventPill = ({ event, color, isFirstDay, isLastDay }) => {
 
 /**
  * CalendarCell — jedna buňka v mřížce.
+ * Inline style jen pro minHeight a border (Bootstrap border utility jsou příliš hrubé).
  */
-const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisible = 4 }) => {
+const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisible = 2 }) => {
     const visibleEvents = events.slice(0, maxVisible)
     const hiddenCount = events.length - maxVisible
 
     return (
-        <div style={{
-            minHeight: "90px",
-            padding: "4px",
-            borderRight: "0.5px solid #dee2e6",
-            borderBottom: "0.5px solid #dee2e6",
-            backgroundColor: isOtherMonth ? "#f8f9fa" : "#ffffff",
-        }}>
-            {/* Číslo dne */}
-            <div style={{
-                width: "22px",
-                height: "22px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "4px",
-                borderRadius: "50%",
-                backgroundColor: isToday ? "#378ADD" : "transparent",
-                color: isToday ? "#fff" : isOtherMonth ? "#adb5bd" : "#212529",
-                fontSize: "12px",
-                fontWeight: isToday ? 700 : 400,
-            }}>
-                {day}
+        <div
+            className={`p-1 border-end border-bottom ${isOtherMonth ? "bg-light" : "bg-white"}`}
+            style={{ minHeight: "90px" }}
+        >
+            {/* Číslo dne — Bootstrap badge pro dnešek */}
+            <div className="mb-1">
+                <span className={isToday
+                    ? "badge bg-primary rounded-circle"
+                    : isOtherMonth
+                        ? "text-muted small"
+                        : "small"
+                }>
+                    {day}
+                </span>
             </div>
 
             {visibleEvents.map((ev) => {
@@ -193,7 +177,7 @@ const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisi
                     <EventPill
                         key={ev.id}
                         event={ev}
-                        color={getColorForEvent(ev)}
+                        colorClass={getColorClassForEvent(ev)}
                         isFirstDay={isFirstDay}
                         isLastDay={isLastDay}
                     />
@@ -201,9 +185,7 @@ const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisi
             })}
 
             {hiddenCount > 0 && (
-                <div style={{ fontSize: "11px", color: "#6c757d", padding: "1px 4px" }}>
-                    +{hiddenCount} další
-                </div>
+                <small className="text-muted">+{hiddenCount} další</small>
             )}
         </div>
     )
@@ -211,6 +193,9 @@ const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisi
 
 /**
  * CalendarView — měsíční kalendářová mřížka.
+ *
+ * Inline style zůstává jen pro CSS grid (Bootstrap nemá 7-sloupcový grid)
+ * a pro border-left/border-top mřížky.
  */
 export const CalendarView = ({ items = [], currentDate, onPrev, onNext }) => {
     const today = new Date()
@@ -259,47 +244,31 @@ export const CalendarView = ({ items = [], currentDate, onPrev, onNext }) => {
     }, [year, month, items])
 
     return (
-        <div style={{ fontFamily: "system-ui, sans-serif", fontSize: "14px" }}>
-            <div style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "12px",
-                padding: "0 4px",
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "18px", fontWeight: 500 }}>
-                        {MONTHS_CZ[month]} {year}
-                    </span>
-                    <CreateRootEventButton />
+        <div>
+            {/* Hlavička — název měsíce, tlačítko nové události, navigace */}
+            <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="d-flex align-items-center gap-3">
+                    <h5 className="mb-0">{MONTHS_CZ[month]} {year}</h5>
                 </div>
-                <div style={{ display: "flex", gap: "4px" }}>
-                    <button onClick={onPrev} className="btn btn-outline-secondary btn-sm">‹</button>
-                    <button onClick={onNext} className="btn btn-outline-secondary btn-sm">›</button>
+                <div className="btn-group btn-group-sm">
+                    <button onClick={onPrev} className="btn btn-outline-secondary">‹</button>
+                    <button onClick={onNext} className="btn btn-outline-secondary">›</button>
                 </div>
             </div>
 
-            <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                borderLeft: "0.5px solid #dee2e6",
-                borderTop: "0.5px solid #dee2e6",
-            }}>
+            {/* Mřížka — inline style jen pro 7-sloupcový grid který Bootstrap nemá */}
+            <div
+                className="border-start border-top"
+                style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
+            >
+                {/* Hlavička dní */}
                 {DAYS_CZ.map(d => (
-                    <div key={d} style={{
-                        backgroundColor: "#f8f9fa",
-                        padding: "6px 4px",
-                        textAlign: "center",
-                        fontSize: "12px",
-                        color: "#6c757d",
-                        fontWeight: 500,
-                        borderRight: "0.5px solid #dee2e6",
-                        borderBottom: "0.5px solid #dee2e6",
-                    }}>
+                    <div key={d} className="bg-light border-end border-bottom text-center text-muted small py-1 fw-medium">
                         {d}
                     </div>
                 ))}
 
+                {/* Buňky */}
                 {cells.map((cell, i) => (
                     <CalendarCell
                         key={i}
