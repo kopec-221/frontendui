@@ -1,31 +1,27 @@
 import { ChildWrapper } from "@hrbolek/uoisfrontend-shared";
 
 /**
- * TemplateChildren Component
+ * Children — utility komponenta která obalí children pomocí ChildWrapper
+ * a předá jim společnou entitu item spolu s ostatními props.
  *
- * A utility React component that wraps its children with the `ChildWrapper` component, 
- * passing down an `template` entity along with other props to all child elements.
- * This component is useful for injecting a common `template` entity into multiple children 
- * while preserving their existing functionality.
+ * Používá se pro injektování společného item objektu do více children
+ * komponent najednou bez nutnosti předávat prop každé zvlášť.
+ * Všechny children obdrží item prop s předanou entitou.
  *
  * @component
- * @param {Object} props - The props for the TemplateChildren component.
- * @param {any} props.template - An entity (e.g., object, string, or other data) to be passed to the children.
- * @param {React.ReactNode} props.children - The children elements to be wrapped and enhanced.
- * @param {...any} props - Additional props to be passed to each child element.
- *
- * @returns {JSX.Element} A `ChildWrapper` component containing the children with the injected `template` entity.
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt předávaný do všech children
+ * @param {React.ReactNode} props.children - children elementy k obalení
+ * @param {...any} props - další props předané každému child elementu
+ * @returns {JSX.Element} ChildWrapper komponenta obsahující children s injektovaným item
  *
  * @example
- * // Example usage:
- * const templateEntity = { id: 1, message: "No data available" };
- *
- * <TemplateChildren template={templateEntity}>
- *     <CustomMessage />
- *     <CustomIcon />
- * </TemplateChildren>
- *
- * // Result: Both <CustomMessage /> and <CustomIcon /> receive the 'template' prop with the specified entity.
+ * // Předání event entity do více children najednou
+ * <Children item={event}>
+ *     <MediumContent />
+ *     <InteractiveMutations />
+ * </Children>
+ * // Obě komponenty obdrží prop item={event}
  */
 export const Children = ({item, children, ...props}) => 
     <ChildWrapper item={item} children={children} {...props} />

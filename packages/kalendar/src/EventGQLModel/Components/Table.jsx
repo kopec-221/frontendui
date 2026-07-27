@@ -4,10 +4,10 @@ import { UpdateButton } from "../Mutations/Update"
 import { DeleteButton } from "../Mutations/Delete"
 
 /**
- * formatDate — převede ISO datum na čitelný formát pro českou lokalizaci.
+ * formatDate — převede ISO datum string na čitelný formát pro českou lokalizaci.
  *
  * @param {string|null} dateStr - ISO datum string nebo null
- * @returns {string} formátované datum nebo "—" pokud datum chybí
+ * @returns {string} formátované datum "DD. MM. YYYY HH:MM" nebo "—" pokud datum chybí
  */
 const formatDate = (dateStr) => {
     if (!dateStr) return "—"
@@ -23,10 +23,25 @@ const formatDate = (dateStr) => {
 /**
  * EventRow — jeden řádek v tabulce událostí.
  *
- * Zobrazuje pouze relevantní pole:
- *   Název, Začátek, Konec, Místo, Počet sub-událostí, Nástroje
+ * Zobrazuje pouze relevantní pole pro uživatele:
+ *   Název, Začátek, Konec, Místo, Počet sub-událostí (badge), Nástroje
  *
- * Technická pole (id, __typename, rbacobjectId...) jsou skryta.
+ * Technická pole (id, __typename, rbacobjectId, lastchange...) jsou záměrně skryta.
+ *
+ * Kliknutí na řádek naviguje na detail stránku události (/view/:id).
+ * e.stopPropagation() na sloupci Nástroje zabrání navigaci při kliknutí
+ * na tlačítka Upravit/Odstranit.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt
+ * @param {string} props.item.id - UUID události (použito pro navigaci)
+ * @param {string} [props.item.name] - název události
+ * @param {string} [props.item.startdate] - datum začátku (ISO string)
+ * @param {string} [props.item.enddate] - datum konce (ISO string)
+ * @param {string} [props.item.place] - místo konání
+ * @param {Array} [props.item.subevents] - seznam sub-událostí (zobrazí se počet)
+ * @returns {JSX.Element}
  */
 const EventRow = ({ item }) => {
     const navigate = useNavigate()
@@ -47,6 +62,7 @@ const EventRow = ({ item }) => {
                     {item.subevents?.length ?? 0}
                 </span>
             </td>
+            {/* stopPropagation zabrání navigaci při kliknutí na tlačítka */}
             <td onClick={e => e.stopPropagation()}>
                 <div className="d-flex gap-1">
                     <UpdateButton item={item} />
@@ -58,13 +74,17 @@ const EventRow = ({ item }) => {
 }
 
 /**
- * Table — tabulka událostí pro PageVector (seznam stránku).
+ * Table — tabulka událostí pro seznam stránku (PageVector).
  *
- * Zobrazuje pouze důležité sloupce místo všech technických polí.
- * Kliknutí na řádek naviguje na detail stránku události.
+ * Zobrazuje pouze důležité sloupce místo všech technických polí entity.
+ * Pokud data jsou prázdná nebo undefined, zobrazí informační zprávu.
  *
+ * Sloupce: Název | Začátek | Konec | Místo | Sub-události | Nástroje
+ *
+ * @component
  * @param {Object} props
- * @param {Array} props.data - pole EventGQLModel objektů
+ * @param {Object[]} props.data - pole EventGQLModel objektů k zobrazení
+ * @returns {JSX.Element} tabulka s řádky nebo zpráva o prázdném seznamu
  */
 export const Table = ({ data }) => {
     if (!data || data.length === 0) {

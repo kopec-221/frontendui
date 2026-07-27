@@ -9,18 +9,32 @@ import { MediumEditableContent, UpdateItemURI } from "../Components";
 import { UpdateAsyncAction } from "../Queries";
 
 /**
- * Výchozí obsah formuláře — komponenta MediumEditableContent
- * zobrazuje inputy pro všechna editovatelná pole události
- * (name, nameEn, place, description, startdate, enddate).
+ * DefaultContent — výchozí obsah editačního formuláře události.
+ *
+ * Renderuje MediumEditableContent která zobrazuje inputy pro všechna
+ * editovatelná pole: name, nameEn, description, startdate, enddate.
+ * Pole "place" není dostupné — backend EventUpdateGQLModel ho nepodporuje.
+ *
+ * @component
+ * @param {Object} props - props předané do MediumEditableContent
+ * @returns {JSX.Element}
  */
 const DefaultContent = (props) => <MediumEditableContent {...props} />;
 
+/**
+ * mutationAsyncAction — výchozí GraphQL mutace pro update události.
+ * Alias pro UpdateAsyncAction z Queries/.
+ */
 const mutationAsyncAction = UpdateAsyncAction;
 
 /**
- * Oprávnění potřebná pro zobrazení editačních komponent.
- * mode: "absolute" znamená že se kontrolují absolutní role uživatele
- * (přes /me query), ne role na konkrétní entitě.
+ * permissions — oprávnění potřebná pro zobrazení editačních komponent.
+ *
+ * oneOfRoles: uživatel musí mít alespoň jednu z uvedených rolí.
+ * mode "absolute" = kontrolují se absolutní role uživatele přes /me query,
+ * ne role na konkrétní entitě (per-entity RBAC).
+ *
+ * @type {{oneOfRoles: string[], mode: string}}
  */
 const permissions = {
     oneOfRoles: ["plánovací administrátor"],
@@ -29,14 +43,17 @@ const permissions = {
 
 /**
  * attributeTransformer — překládá názvy polí z formuláře na názvy
- * které očekává GraphQL mutace.
+ * které očekává GraphQL mutace eventUpdate.
  *
- * Problém: HTML input pro datetime-local posílá hodnoty pod id "startdate"
- * (lowercase), ale GraphQL mutace eventInsert očekává "startDate" (camelCase).
- * U eventUpdate je to naopak — očekává "startdate" (lowercase).
- * Zde řešíme update variantu, proto překládáme jen pro jistotu opačný směr.
+ * Problém: HTML input pro datetime-local posílá hodnoty pod id "startDate"
+ * (camelCase D — shodné s eventInsert), ale eventUpdate očekává "startdate"
+ * (lowercase). Transformer zajistí správný překlad při každé změně inputu.
  *
  * Vše ostatní projde beze změny (id → id, name → name, atd.)
+ *
+ * @param {string} id - název atributu z formuláře (např. "startDate")
+ * @param {any} value - nová hodnota atributu
+ * @returns {Object} objekt s přeloženým názvem klíče (např. { startdate: value })
  */
 const attributeTransformer = (id, value) => {
     const keyMap = {
@@ -48,12 +65,18 @@ const attributeTransformer = (id, value) => {
 };
 
 /**
- * payloadBuilder — sestaví základní payload který se vždy pošle spolu
- * s formulářovými daty. Obsahuje povinné pole pro update:
- *   id         - identifikuje který záznam měníme
- *   lastchange - optimistický zámek (viz UpdateAsyncAction)
+ * payloadBuilder — sestaví povinný payload pro GraphQL mutaci eventUpdate.
  *
- * Volá se jako onOk(item) těsně před odesláním mutace.
+ * Volá se těsně před odesláním mutace (onOk callback).
+ * Obsahuje povinná pole:
+ *   id         — identifikuje který záznam měníme
+ *   lastchange — optimistický zámek; server odmítne update pokud se
+ *                lastchange neshoduje (záznam byl mezitím změněn)
+ *
+ * @param {Object} item - EventGQLModel objekt
+ * @param {string} item.id - UUID události
+ * @param {string} item.lastchange - timestamp poslední změny
+ * @returns {{id: string, lastchange: string}}
  */
 const payloadBuilder = (item) => ({
     id:         item?.id,
@@ -61,9 +84,16 @@ const payloadBuilder = (item) => ({
 });
 
 /**
- * UpdateLink — odkaz na editační stránku entity.
- * Generuje URL ve tvaru /kalendar/EventGQLModel/edit/:id
- * Zobrazí se jen pokud má uživatel potřebnou roli.
+ * UpdateLink — odkaz na editační stránku události.
+ *
+ * Generuje URL ve tvaru /kalendar/EventGQLModel/edit/:id.
+ * Zobrazí se pouze pokud má uživatel roli "plánovací administrátor".
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} [props.uriPattern=UpdateItemURI] - URL vzor pro editační stránku
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const UpdateLink = ({ uriPattern = UpdateItemURI, item, ...props }) => {
     if (!item) return null;
@@ -71,10 +101,18 @@ export const UpdateLink = ({ uriPattern = UpdateItemURI, item, ...props }) => {
 };
 
 /**
- * UpdateDialog — modální dialog s editačním formulářem.
+ * UpdateDialog — modální dialog s editačním formulářem události.
+ *
  * Otevře se jako overlay nad aktuální stránkou.
- * Komponenty Dialog, DefaultContent a mutationAsyncAction lze přepsat
- * přes props pro customizaci chování.
+ * Používá attributeTransformer pro překlad názvů polí a payloadBuilder
+ * pro sestavení povinných polí před odesláním mutace.
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - formulář
+ * @param {Function} [props.mutationAsyncAction=UpdateAsyncAction] - mutace
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const UpdateDialog = ({
     DefaultContent: DefaultContent_ = DefaultContent,
@@ -98,7 +136,17 @@ export const UpdateDialog = ({
 
 /**
  * UpdateButton — tlačítko které po kliknutí otevře UpdateDialog.
- * Typicky se zobrazuje v InteractiveMutations (panel nástrojů na detail stránce).
+ *
+ * Typicky se zobrazuje v InteractiveMutations (panel NÁSTROJE na detail stránce).
+ * Dialog, DefaultContent a mutationAsyncAction lze přepsat přes props.
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - formulář
+ * @param {React.ComponentType} [props.Dialog=UpdateDialog] - dialog komponenta
+ * @param {Function} [props.mutationAsyncAction=UpdateAsyncAction] - mutace
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const UpdateButton = ({
     DefaultContent: DefaultContent_ = DefaultContent,
@@ -123,9 +171,17 @@ export const UpdateButton = ({
 };
 
 /**
- * UpdateBody — inline formulář bez dialogu, přímo vložený do stránky.
- * Používá ho PageUpdateItem (/edit/:id route) kde je editace hlavním
- * účelem celé stránky, ne jen doplňková akce.
+ * UpdateBody — inline editační formulář přímo na stránce (bez dialogu).
+ *
+ * Používá ho PageUpdateItem na route /edit/:id kde je editace hlavním
+ * účelem stránky. Na rozdíl od UpdateDialog se nezobrazuje jako overlay.
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - formulář
+ * @param {Function} [props.mutationAsyncAction=UpdateAsyncAction] - mutace
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const UpdateBody = ({
     DefaultContent: DefaultContent_ = DefaultContent,

@@ -3,31 +3,40 @@ import { Link } from "./Link"
 import { CardCapsule as CardCapsule_ } from "../../../../_template/src/Base/Components"
 
 /**
- * A specialized card component that displays an `TemplateLink` as its title and encapsulates additional content.
+ * CardCapsule — Bootstrap karta s dynamickou hlavičkou pro EventGQLModel.
  *
- * This component extends the `CardCapsule` component by using a combination of a `PersonFill` icon and 
- * an `TemplateLink` component in the card's header. The `children` prop is used to render any content 
- * inside the card body. It is designed for use with entities represented by the `template` object.
+ * Rozšiřuje základní CardCapsule z _template o výchozí hlavičku
+ * která kombinuje ikonu PersonFill a odkaz na detail události (Link).
+ *
+ * Pokud je předán prop title, použije se místo výchozí hlavičky —
+ * to umožňuje zobrazit libovolný obsah v hlavičce karty
+ * (např. prostý text "Detail", "Nástroje", "Kalendář").
+ *
+ * Používá se jako obal pro sekce na detail stránce:
+ *   <CardCapsule item={item} title="Nástroje"> ... </CardCapsule>
+ *   <CardCapsule item={item}> ... </CardCapsule>  // výchozí hlavička s odkazem
  *
  * @component
- * @param {Object} props - The props for the TemplateCardCapsule component.
- * @param {Object} props.template - The object representing the template entity.
- * @param {string|number} props.template.id - The unique identifier for the template entity.
- * @param {string} props.template.name - The display name for the template entity.
- * @param {React.ReactNode} [props.children=null] - The content to render inside the card's body.
- *
- * @returns {JSX.Element} The rendered card component with a dynamic title and body content.
+ * @param {Object} props
+ * @param {Object} [props.item] - EventGQLModel objekt (použit pro výchozí hlavičku s odkazem)
+ * @param {string} [props.item.id] - UUID události
+ * @param {string} [props.item.name] - název události zobrazený v odkazu
+ * @param {React.ReactNode} [props.children] - obsah těla karty
+ * @param {React.ReactNode|string|null} [props.title=null]
+ *   Vlastní hlavička karty. Pokud je null, použije se výchozí (ikona + Link na událost).
+ * @returns {JSX.Element}
  *
  * @example
- * // Example usage:
- * import { TemplateCardCapsule } from './TemplateCardCapsule';
- * import { Button } from 'react-bootstrap';
+ * // Výchozí hlavička — ikona + odkaz na událost
+ * <CardCapsule item={event}>
+ *   <MediumContent item={event} />
+ * </CardCapsule>
  *
- * const templateEntity = { id: 123, name: "Example Entity" };
- *
- * <TemplateCardCapsule template={templateEntity}>
- *   <Button variant="primary">Click Me</Button>
- * </TemplateCardCapsule>
+ * @example
+ * // Vlastní hlavička
+ * <CardCapsule item={event} title="Nástroje">
+ *   <button>Upravit</button>
+ * </CardCapsule>
  */
 export const CardCapsule = ({ item, children, title=null}) => {
     
@@ -35,7 +44,6 @@ export const CardCapsule = ({ item, children, title=null}) => {
         title = <><PersonFill /> <Link item={item} /></>
     }
     return (
-        
         <CardCapsule_ title={title}>
             {children}
         </CardCapsule_>

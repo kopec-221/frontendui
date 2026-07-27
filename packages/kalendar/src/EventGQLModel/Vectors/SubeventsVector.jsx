@@ -7,20 +7,34 @@ import { DeleteButton } from "../Mutations/Delete"
 import { CalendarView } from "../Components/CalendarView"
 
 /**
+ * formatDate — převede ISO datum na čitelný formát pro českou lokalizaci.
+ *
+ * @param {string|null} d - ISO datum string nebo null
+ * @returns {string} formátované datum "DD. MM. YYYY HH:MM" nebo "—" pokud datum chybí
+ */
+const formatDate = (d) => d ? new Date(d).toLocaleString("cs-CZ", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+}) : "—"
+
+/**
  * SubeventRow — jeden řádek v tabulce sub-událostí.
  *
- * Načítá plná data sub-eventu ze Redux store podle id.
- * Používá UpdateButton a DeleteButton z naší Mutations/ složky
- * která má nastavenou roli "plánovací administrátor".
+ * Načítá plná data sub-eventu ze Redux store podle id přes selectItemById.
+ * Renderuje null pokud entita ve store ještě není (načítá se).
+ *
+ * Používá UpdateButton a DeleteButton z Mutations/ složky která má
+ * nastavenou roli "plánovací administrátor" — ne z _template kde
+ * je výchozí role "superadmin".
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} props.id - UUID sub-události k zobrazení
+ * @returns {JSX.Element|null} řádek tabulky nebo null pokud entita není ve store
  */
 const SubeventRow = ({ id }) => {
     const item = useSelector(s => selectItemById(s, id))
     if (!item) return null
-
-    const formatDate = (d) => d ? new Date(d).toLocaleString("cs-CZ", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit"
-    }) : "—"
 
     return (
         <tr>
@@ -39,13 +53,29 @@ const SubeventRow = ({ id }) => {
 }
 
 /**
- * SubeventsCalendar — kalendář zobrazující pouze sub-události dané události.
+ * SubeventsCalendar — kalendářový pohled zobrazující pouze sub-události dané události.
+ *
+ * Načte plná data všech sub-událostí ze Redux store podle jejich id.
+ * filter(Boolean) odstraní undefined hodnoty pro případ že entita
+ * ještě není ve store načtena.
+ *
+ * Inicializuje currentDate na měsíc první sub-události která má datum.
+ * Pokud žádná nemá datum, použije aktuální měsíc.
+ *
+ * @component
+ * @param {Object} props
+ * @param {string[]} props.subeventIds - pole UUID sub-událostí k zobrazení
+ * @returns {JSX.Element}
  */
 const SubeventsCalendar = ({ subeventIds }) => {
     const allSubevents = useSelector(s =>
         subeventIds.map(id => selectItemById(s, id)).filter(Boolean)
     )
 
+    /**
+     * initialDate — počáteční měsíc kalendáře.
+     * Nastaven na měsíc první sub-události s datem, jinak na aktuální měsíc.
+     */
     const firstWithDate = allSubevents.find(e => e?.startdate)
     const initialDate = firstWithDate ? new Date(firstWithDate.startdate) : new Date()
 
@@ -64,11 +94,20 @@ const SubeventsCalendar = ({ subeventIds }) => {
 }
 
 /**
- * SubeventsVector — zobrazení sub-událostí jako tabulka + kalendář.
+ * SubeventsVector — zobrazení sub-událostí nadřazené události jako tabulka + kalendář.
  *
- * Layout:
- *   1. Tabulka sub-událostí s CRUD operacemi (vždy viditelná)
- *   2. Kalendář zobrazující pouze sub-události této události (vždy viditelný)
+ * Vždy zobrazuje obojí najednou (bez přepínače):
+ *   1. Tabulka sub-událostí — seznam s CRUD operacemi (Přidat, Editovat, Odstranit)
+ *   2. Kalendář sub-událostí — CalendarView zobrazující pouze sub-události
+ *      této konkrétní události (ne všechny eventy v systému)
+ *
+ * Renderuje se v MiddleColumn detail stránky (PageReadItem → EventSubPage).
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt nadřazené události
+ * @param {Array} [props.item.subevents] - seznam sub-událostí (obsahuje { id, name })
+ * @returns {JSX.Element}
  */
 export const SubeventsVector = ({ item }) => {
     const subevents = item?.subevents || []
@@ -76,6 +115,7 @@ export const SubeventsVector = ({ item }) => {
 
     return (
         <div>
+            {/* Tabulka sub-událostí */}
             <div className="card mb-3">
                 <div className="card-header py-2 d-flex justify-content-between align-items-center">
                     <span className="fw-semibold small">
@@ -103,6 +143,8 @@ export const SubeventsVector = ({ item }) => {
                     }
                 </div>
             </div>
+
+            {/* Kalendář sub-událostí */}
             <div className="card">
                 <div className="card-header py-2">
                     <span className="fw-semibold small">Kalendář</span>

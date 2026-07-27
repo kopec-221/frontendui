@@ -8,8 +8,16 @@ import {
 } from "../../../../_template/src/Base/Mutations/Delete";
 
 /**
- * Výchozí obsah potvrzovacího dialogu.
- * Zobrazí detail události + varování pokud má pod-události.
+ * DefaultContent — výchozí obsah potvrzovacího dialogu pro smazání události.
+ *
+ * Zobrazí readonly detail události (MediumContent) a pokud má událost
+ * pod-události, zobrazí červené varování se zákazem smazání.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt mazané události
+ * @param {Array} [props.item.subevents] - seznam pod-událostí
+ * @returns {JSX.Element}
  */
 const DefaultContent = ({ item, ...props }) => {
     const subeventsCount = item?.subevents?.length ?? 0;
@@ -28,10 +36,21 @@ const DefaultContent = ({ item, ...props }) => {
 };
 
 /**
- * SafeDeleteAsyncAction — wrapper který:
- * 1. Zkontroluje zda událost nemá pod-události
- * 2. Pokud má, hodí chybu před odesláním na API
- * 3. Pokud nemá, pošle jen { id, lastchange }
+ * SafeDeleteAsyncAction — bezpečný wrapper nad DeleteAsyncAction.
+ *
+ * Před odesláním požadavku na API zkontroluje zda událost nemá pod-události.
+ * Pokud má, vrátí thunk který okamžitě hodí chybu — API se vůbec nezavolá.
+ * Pokud nemá, sestaví payload { id, lastchange } a zavolá DeleteAsyncAction.
+ *
+ * Proč lastchange? — optimistický zámek. Server odmítne smazání pokud byl
+ * záznam mezitím změněn někým jiným (lastchange se neshoduje).
+ *
+ * @param {Object} item - EventGQLModel objekt
+ * @param {string} item.id - UUID události
+ * @param {string} item.lastchange - timestamp poslední změny
+ * @param {Array} [item.subevents] - seznam pod-událostí
+ * @param {...any} rest - další argumenty předané do DeleteAsyncAction
+ * @returns {Function} Redux thunk akce
  */
 const SafeDeleteAsyncAction = (item, ...rest) => {
     const subeventsCount = item?.subevents?.length ?? 0;
@@ -51,11 +70,19 @@ const SafeDeleteAsyncAction = (item, ...rest) => {
     return DeleteAsyncAction(payload, ...rest);
 };
 
+/**
+ * MutationAsyncAction — akce použitá pro smazání události.
+ * Alias pro SafeDeleteAsyncAction — přidává ochranu před smazáním
+ * události s pod-událostmi.
+ */
 const MutationAsyncAction = SafeDeleteAsyncAction;
 
 /**
- * Oprávnění — role potřebná pro smazání.
- * mode: "absolute" = kontrola přes globální role uživatele.
+ * permissions — oprávnění potřebná pro smazání události.
+ * Uživatel musí mít roli "plánovací administrátor".
+ * mode "absolute" = kontrola přes globální role uživatele.
+ *
+ * @type {{oneOfRoles: string[], mode: string}}
  */
 const permissions = {
     oneOfRoles: ["plánovací administrátor"],
@@ -63,8 +90,14 @@ const permissions = {
 };
 
 /**
- * DeleteLink — odkaz na stránku pro smazání entity.
+ * DeleteLink — odkaz na stránku pro smazání události.
  * Generuje URL /kalendar/EventGQLModel/delete/:id
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} [props.uriPattern=DeleteItemURI] - URL vzor pro stránku smazání
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const DeleteLink = ({ uriPattern = DeleteItemURI, item, ...props }) => {
     if (!item) return null;
@@ -74,9 +107,18 @@ export const DeleteLink = ({ uriPattern = DeleteItemURI, item, ...props }) => {
 };
 
 /**
- * DeleteDialog — modální potvrzovací dialog.
- * Zobrazí varování pokud má událost pod-události.
- * Po potvrzení přesměruje na seznam (vectorItemsURI).
+ * DeleteDialog — modální potvrzovací dialog pro smazání události.
+ *
+ * Zobrazí DefaultContent (detail + případné varování o pod-událostech).
+ * Po potvrzení zavolá SafeDeleteAsyncAction a přesměruje na seznam.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Function} [props.mutationAsyncAction=MutationAsyncAction] - akce pro smazání
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - obsah dialogu
+ * @param {string} [props.vectorItemsURI=ListURI] - URL pro přesměrování po smazání
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const DeleteDialog = ({
     mutationAsyncAction = MutationAsyncAction,
@@ -100,7 +142,18 @@ export const DeleteDialog = ({
 
 /**
  * DeleteButton — tlačítko které otevře DeleteDialog.
- * Zobrazuje se v InteractiveMutations na detail stránce.
+ *
+ * Zobrazuje se v InteractiveMutations (sekce NÁSTROJE) na detail stránce.
+ * Před zobrazením dialogu zkontroluje oprávnění uživatele.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Function} [props.mutationAsyncAction=MutationAsyncAction] - akce pro smazání
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - obsah dialogu
+ * @param {React.ComponentType} [props.Dialog=DeleteDialog] - dialog komponenta
+ * @param {string} [props.vectorItemsURI=ListURI] - URL pro přesměrování po smazání
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const DeleteButton = ({
     mutationAsyncAction = MutationAsyncAction,
@@ -125,8 +178,19 @@ export const DeleteButton = ({
 };
 
 /**
- * DeleteBody — inline potvrzení smazání na stránce /delete/:id
- * Po úspěšném smazání přesměruje na seznam.
+ * DeleteBody — inline potvrzení smazání na stránce /delete/:id.
+ *
+ * Na rozdíl od DeleteDialog se nezobrazuje v modálním okně ale přímo
+ * na stránce. Používá se v PageDeleteItem.
+ * Po úspěšném smazání přesměruje na seznam událostí.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Function} [props.mutationAsyncAction=MutationAsyncAction] - akce pro smazání
+ * @param {React.ComponentType} [props.DefaultContent=DefaultContent] - obsah stránky
+ * @param {string} [props.vectorItemsURI=ListURI] - URL pro přesměrování po smazání
+ * @param {Object} props.item - EventGQLModel objekt
+ * @returns {JSX.Element|null} null pokud item není definován
  */
 export const DeleteBody = ({
     mutationAsyncAction = MutationAsyncAction,

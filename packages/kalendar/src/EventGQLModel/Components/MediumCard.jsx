@@ -4,29 +4,28 @@ import { MediumContent } from "./MediumContent"
 import { Link } from "./Link"
 
 /**
- * A card component that displays detailed content for an template entity.
+ * MediumCard — karta pro kompaktní zobrazení přehledu události.
  *
- * This component combines `TemplateCardCapsule` and `TemplateMediumContent` to create a card layout
- * with a title and medium-level content. The title includes a `PersonFill` icon and a link to
- * the template entity's details, while the body displays serialized details of the entity along
- * with any additional children passed to the component.
+ * Kombinuje CardCapsule a MediumContent do kartového layoutu s hlavičkou.
+ * Hlavička obsahuje ikonu PersonFill a odkaz na detail stránku události.
+ * Tělo karty zobrazuje children (volitelný obsah) a základní atributy
+ * události přes MediumContent (název, začátek, konec, místo, popis).
+ *
+ * Používá se v seznamových pohledech kde potřebujeme zobrazit
+ * více událostí najednou v kartovém layoutu (ne v tabulce).
  *
  * @component
- * @param {Object} props - The properties for the TemplateMediumCard component.
- * @param {Object} props.template - The object representing the template entity.
- * @param {string|number} props.template.id - The unique identifier for the template entity.
- * @param {string} props.template.name - The name or label of the template entity.
- * @param {React.ReactNode} [props.children=null] - Additional content to render inside the card body.
- *
- * @returns {JSX.Element} A JSX element combining a card with a title and detailed content.
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt
+ * @param {string} [props.item.id] - UUID události (použito v odkazu v hlavičce)
+ * @param {string} [props.item.name] - název události (zobrazí se jako text odkazu)
+ * @param {React.ReactNode} [props.children] - volitelný obsah renderovaný před MediumContent
+ * @returns {JSX.Element}
  *
  * @example
- * // Example usage:
- * const templateEntity = { id: 123, name: "Sample Entity" };
- * 
- * <TemplateMediumCard template={templateEntity}>
- *   <p>Additional details or actions for the entity.</p>
- * </TemplateMediumCard>
+ * <MediumCard item={event}>
+ *   <p>Dodatečné informace o události.</p>
+ * </MediumCard>
  */
 export const MediumCard = ({ item, children }) => {
     return (

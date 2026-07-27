@@ -11,7 +11,15 @@ import { Collapsible } from "../../../../_template/src/Base/FormControls/Collaps
 
 /**
  * safeParseWhere — bezpečně parsuje JSON where filtr z URL query parametru.
- * Vrátí null pokud parametr chybí nebo není validní JSON objekt.
+ *
+ * Vrátí null pokud:
+ *   - parametr v URL chybí
+ *   - hodnota není validní JSON
+ *   - hodnota není objekt (např. je to string nebo číslo)
+ *
+ * @param {URLSearchParams} sp - URL search params objekt
+ * @param {string} [paramName="where"] - název URL parametru s filtrem
+ * @returns {Object|null} parsovaný where objekt nebo null
  */
 function safeParseWhere(sp, paramName = "where") {
     const raw = sp.get(paramName)
@@ -24,23 +32,49 @@ function safeParseWhere(sp, paramName = "where") {
     }
 }
 
+/**
+ * filterParameterName — název URL query parametru pro uložení where filtru.
+ *
+ * Filtr se ukládá jako JSON do URL aby byl sdílitelný odkazem.
+ * Příklad URL: /list/?gr_where={"name":{"_ilike":"%projekt%"}}
+ *
+ * @type {string}
+ */
 const filterParameterName = "gr_where"
 
 /**
- * PageVector — seznam všech událostí s filtrací, infinite scrollem
- * a tlačítkem pro vytvoření nové kořenové události.
+ * PageVector — seznam všech událostí s filtrací a infinite scrollem.
+ *
+ * URL: /kalendar/EventGQLModel/list/
  *
  * Obsahuje:
- *   CreateRootEventButton — tlačítko "+ Nová událost" nahoře
- *   Collapsible filtr     — skrývatelný panel s filtračními poli
- *   Table                 — tabulka eventů s infinite scrollem
+ *   - skrývatelný filtrační panel (Název, Začátek od, Konec do)
+ *   - tabulku událostí s kliknutím na řádek → detail stránka
+ *   - infinite scroll pro automatické načítání dalších záznamů
+ *
+ * Jak funguje filtr:
+ *   1. Uživatel vyplní pole a klikne "Filtrovat"
+ *   2. FilterButton uloží where JSON do URL parametru gr_where
+ *   3. useSearchParams detekuje změnu URL
+ *   4. useMemo přepočítá whereFromUrl
+ *   5. useEffect detekuje změnu whereFromUrl a zavolá restart()
+ *   6. restart() načte data znovu od začátku s novým filtrem
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ReactNode} [props.children] - volitelný dodatečný obsah
+ * @param {Function} [props.queryAsyncAction=ReadPageAsyncAction]
+ *   Async action pro načtení seznamu událostí. Lze přepsat pro customizaci dotazu.
+ * @returns {JSX.Element}
  */
 export const PageVector = ({ children, queryAsyncAction = ReadPageAsyncAction }) => {
     const [sp] = useSearchParams()
 
     /**
-     * whereFromUrl — where filtr načtený z URL query parametru.
-     * Mění se když uživatel klikne na Filtrovat nebo Vymazat filtr.
+     * whereFromUrl — where filtr načtený z URL query parametru gr_where.
+     *
+     * useMemo zajistí že se JSON.parse nevolá při každém renderu,
+     * ale pouze když se změní URL search params.
      */
     const whereFromUrl = useMemo(
         () => safeParseWhere(sp, filterParameterName),
@@ -52,6 +86,12 @@ export const PageVector = ({ children, queryAsyncAction = ReadPageAsyncAction })
         actionParams: { skip: 0, limit: 25, where: whereFromUrl },
     })
 
+    /**
+     * useEffect — spustí restart() při každé změně filtru.
+     *
+     * Prázdné pole závislostí by způsobilo načtení jen při mountu.
+     * [whereFromUrl] zajistí opětovné načtení při každé změně filtru.
+     */
     useEffect(() => {
         const params = { skip: 0, limit: 25, where: whereFromUrl }
         restart(params)

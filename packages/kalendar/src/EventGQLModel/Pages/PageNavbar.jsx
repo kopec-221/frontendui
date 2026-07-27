@@ -6,9 +6,14 @@ import { UpdateLink } from '../Mutations/Update';
 import { CreateButton } from '../Mutations/Create';
 
 /**
- * Allow to use HashContainer for determination which component at page will be rendered.
- * That must be manually inserted at TemplatePageContent, usually this should be done 
- * as children of TemplateLargeCard.
+ * HashContainer — umožňuje použití hash fragmentu URL pro určení
+ * které komponenty na stránce budou viditelné.
+ *
+ * Vkládá se ručně do TemplateLargeCard jako children.
+ * Užitečné pro definici globálně aktivních "sekcí" jako jsou:
+ * věda, administrace, výuka, rozvoj atd.
+ *
+ * Příklad použití:
  * <TemplateLargeCard>
  *     <HashContainer>
  *         <VectorA id="history"/>
@@ -16,7 +21,6 @@ import { CreateButton } from '../Mutations/Create';
  *         <VectorC id="graph"/>
  *     </HashContainer>
  * </TemplateLargeCard>
- * it is usefull to define globally active "areas" like science, administration, teaching, ...
  */
 // const TemplatePageSegments = [
 //     { segment: 'education', label: 'Výuka' },
@@ -26,39 +30,29 @@ import { CreateButton } from '../Mutations/Create';
 // ]
 
 /**
- * A navigation button component that generates a URL based on the template's ID and a specific segment.
- * The button uses a `ProxyLink` to navigate while preserving hash and query parameters.
+ * TitleNavButton — navigační tlačítko které generuje URL na základě
+ * id šablony a konkrétního segmentu.
  *
- * ### Features:
- * - Dynamically constructs the URL with a hash fragment pointing to the specified segment.
- * - Displays a label for the navigation link.
- * - Integrates seamlessly with `ProxyLink` for enhanced navigation.
+ * Tlačítko používá ProxyLink pro navigaci a zachovává hash a query parametry.
+ *
+ * Funkce:
+ * - Dynamicky sestaví URL s hash fragmentem odkazujícím na zadaný segment
+ * - Zobrazí label navigačního odkazu
+ * - Bezproblémově se integruje s ProxyLink
  *
  * @component
- * @param {Object} props - The properties for the TitleNavButton component.
- * @param {Object} props.template - The template object containing details about the template.
- * @param {string|number} props.template.id - The unique identifier for the template.
- * @param {string} props.segment - The segment to append as a hash fragment in the URL.
- * @param {string} props.label - The text to display as the label for the navigation button.
- *
- * @returns {JSX.Element} A styled navigation button linking to the constructed URL.
- *
- * @example
- * // Example 1: Basic usage with a template and segment
- * const template = { id: 123 };
- * const segment = "details";
- * const label = "View Details";
- *
- * <TitleNavButton template={template} segment={segment} label={label} />
- * // Resulting URL: `/ug/template/view/123#details`
+ * @param {Object} props
+ * @param {Object} props.item - objekt entity s detaily
+ * @param {string|number} props.item.id - unikátní identifikátor entity
+ * @param {string} props.segment - segment přidaný jako hash fragment do URL
+ * @param {string} props.label - text zobrazený jako label navigačního tlačítka
+ * @returns {JSX.Element} stylizované navigační tlačítko s odkazem na sestavené URL
  *
  * @example
- * // Example 2: Different segment and label
- * <TitleNavButton template={{ id: 456 }} segment="settings" label="Template Settings" />
- * // Resulting URL: `/ug/template/view/456#settings`
+ * <TitleNavButton item={{ id: 123 }} segment="details" label="Zobrazit detail" />
+ * // Výsledná URL: `/ug/template/view/123#details`
  */
 // const TitleNavButton = ({ item, segment, label, ...props }) => {
-//     // const urlbase = (segment) => `/templates/template/${segment}/${template?.id}`;
 //     const urlbase = (segment) => `${LinkURI}${item?.id}#${segment}`;
 //     return (
 //         <Nav.Link as={"span"} {...props}>
@@ -68,29 +62,24 @@ import { CreateButton } from '../Mutations/Create';
 // };
 
 /**
- * Renders the navigation bar for an Template page.
+ * PageNavbar — navigační lišta pro detail stránku entity.
  *
- * This component uses a custom hook, `useHash()`, to determine the current hash
- * and highlights the active segment. It displays a navigation bar (using MyNavbar)
- * with several segments (e.g. "history", "roles", "graph"), each rendered as a 
- * TitleNavButton. The segments are hardcoded in this component and only rendered 
- * if an `template` object is provided.
+ * Komponenta používá hook useHash() pro určení aktuálního hash fragmentu
+ * a zvýraznění aktivního segmentu. Zobrazuje navigační lištu (MyNavbar)
+ * s několika sekcemi (např. "history", "roles", "graph"), každá jako TitleNavButton.
+ * Segmenty jsou hardcoded a renderují se pouze pokud je předán objekt entity.
  *
  * @component
- * @param {Object} props - The component properties.
- * @param {Object} props.template - The template entity object that provides context for the page.
- * @param {string|number} props.template.id - The unique identifier for the template.
- * @param {Function} props.onSearchChange - Callback function to handle changes in the search input.
- *
- * @returns {JSX.Element} The rendered TemplatePageNavbar component.
+ * @param {Object} props
+ * @param {Object} props.item - objekt entity poskytující kontext pro stránku
+ * @param {string|number} props.item.id - unikátní identifikátor entity
+ * @param {Function} props.onSearchChange - callback pro zpracování změn vyhledávání
+ * @returns {JSX.Element} vykreslená PageNavbar komponenta
  *
  * @example
- * // Example usage:
- * const template = { id: 123, ... };
- * <TemplatePageNavbar template={template} onSearchChange={handleSearchChange} />
+ * <PageNavbar item={{ id: 123 }} onSearchChange={handleSearchChange} />
  */
 // export const PageNavbar = ({ item, children, onSearchChange }) => {
-//     // const [currentHash, setHash] = useHash(); // Use the custom hook to manage hash
 //     const currentHash = "da"
 //     return (
 //         <div className='screen-only'>
@@ -101,7 +90,8 @@ import { CreateButton } from '../Mutations/Create';
 //                             template={item}
 //                             segment={segment}
 //                             label={label}
-//                             className={segment === currentHash ? "active" : ""} aria-current={segment === currentHash ? "page" : undefined}
+//                             className={segment === currentHash ? "active" : ""}
+//                             aria-current={segment === currentHash ? "page" : undefined}
 //                         />
 //                     </Nav.Item>
 //                 ))}
@@ -111,7 +101,23 @@ import { CreateButton } from '../Mutations/Create';
 //     );
 // };
 
-
+/**
+ * MyNavDropdown — rozbalovací navigační menu pro správu skupin entity.
+ *
+ * Zobrazuje dropdown s položkami pro navigaci na seznam, role, podskupiny
+ * a členy entity. Tlačítka pro editaci a vytvoření jsou dostupná pouze
+ * pokud má entita správný typ (TemplateGQLModel).
+ *
+ * Poznámka: Tato komponenta je převzata ze šablony (_template) a slouží
+ * jako základ pro případné rozšíření navigace EventGQLModel.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} [props.item] - objekt entity
+ * @param {string} [props.item.__typename] - GraphQL typ entity (musí být "TemplateGQLModel")
+ * @param {string} [props.item.id] - UUID entity
+ * @returns {JSX.Element} rozbalovací navigační menu
+ */
 export const MyNavDropdown = ({ item }) => {
     const { __typename } = item || {}
     const hasProperType = __typename === "TemplateGQLModel"
@@ -130,7 +136,6 @@ export const MyNavDropdown = ({ item }) => {
             <NavDropdown.Item as={Link} item={item} action="memberships" disabled={!hasProperType}>
                 Členové<br/><Link item={item} />
             </NavDropdown.Item>
-        
         
             <NavDropdown.Divider />
             
@@ -154,7 +159,13 @@ export const MyNavDropdown = ({ item }) => {
             </NavDropdown.Item>
             
             <NavDropdown.Divider />
-            <NavDropdown.Item as={ProxyLink} to={`/generic/${item?.__typename}/__def/${item?.id}`} reloadDocument={false}>Definice</NavDropdown.Item >
+            <NavDropdown.Item 
+                as={ProxyLink} 
+                to={`/generic/${item?.__typename}/__def/${item?.id}`} 
+                reloadDocument={false}
+            >
+                Definice
+            </NavDropdown.Item>
         </NavDropdown>
     )
 }

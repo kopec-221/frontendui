@@ -6,11 +6,19 @@ import { PageNavbar } from "../../../packages/_template/src/Base/Pages/PageNavba
 /**
  * AppNavbar — hlavní navigační lišta celé aplikace.
  *
- * Načte aktuální entitu ze store podle :id z URL
- * a předá ji do PageNavbar pro zobrazení breadcrumbs.
+ * Načte id aktuální entity z URL parametru :id přes useParams()
+ * a vyhledá plná data entity v Redux store přes selectItemById.
+ * Předá entitu do PageNavbar která zobrazí breadcrumbs a název entity.
  *
- * Dropdown "Události" byl odstraněn — navigace probíhá
- * přes seznam událostí a detail jednotlivých událostí.
+ * Pokud entita ve store ještě není (stránka se teprve načítá),
+ * předá prázdný objekt {} a PageNavbar zobrazí prázdné breadcrumbs.
+ *
+ * Dropdown "Události" byl záměrně odstraněn — navigace probíhá
+ * přes tlačítka v sekci NÁSTROJE (InteractiveMutations) a přímé
+ * URL adresy. Navbar je tak čistší a méně rušivý.
+ *
+ * @component
+ * @returns {JSX.Element} navigační lišta s breadcrumbs aktuální entity
  */
 export const AppNavbar = () => {
     const { id } = useParams()

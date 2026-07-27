@@ -5,7 +5,17 @@ import { DeleteButton } from "./Delete";
 import { useNavigate } from "react-router-dom";
 
 /**
- * PageLink — odkaz na seznam všech událostí (VectorItemsURI = /kalendar/EventGQLModel/list/).
+ * PageLink — odkaz na seznam všech událostí.
+ *
+ * Naviguje na VectorItemsURI (/kalendar/EventGQLModel/list/).
+ * Zachovává hash a search parametry URL pokud není řečeno jinak.
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - obsah odkazu
+ * @param {boolean} [props.preserveHash=true] - zachovat hash část URL
+ * @param {boolean} [props.preserveSearch=true] - zachovat query parametry URL
+ * @returns {JSX.Element}
  */
 export const PageLink = ({ children, preserveHash = true, preserveSearch = true, ...props }) => {
     return (
@@ -21,11 +31,17 @@ export const PageLink = ({ children, preserveHash = true, preserveSearch = true,
 };
 
 /**
- * BackToViewButton — tlačítko které naviguje zpět na /view/:id stránku.
- * Užitečné na editační stránce (/edit/:id) pro návrat na readonly detail.
+ * BackToViewButton — tlačítko které naviguje zpět na readonly detail stránku.
  *
- * Props:
- *   item - EventGQLModel objekt (potřebný pro získání id)
+ * Používá useNavigate() pro programatickou navigaci na /view/:id.
+ * Užitečné na editační stránce (/edit/:id) pro návrat bez ztráty dat ve store.
+ * Renderuje null pokud item nemá id.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt
+ * @param {string} props.item.id - UUID události (povinné pro navigaci)
+ * @returns {JSX.Element|null} null pokud item.id není definováno
  */
 const BackToViewButton = ({ item, ...props }) => {
     const navigate = useNavigate()
@@ -43,14 +59,23 @@ const BackToViewButton = ({ item, ...props }) => {
 }
 
 /**
- * InteractiveMutations — panel s akčními tlačítky pro správu události.
+ * InteractiveMutations — panel NÁSTROJE s akčními tlačítky pro správu události.
  *
- * Zobrazuje:
- *   Stránka    — odkaz na seznam všech událostí (/list/)
- *   Zobrazit   — návrat na readonly detail (/view/:id)
- *   Upravit    — odkaz na editační stránku (/edit/:id)
- *   Odstranit  — dialog pro potvrzení smazání
- *   Aktualizovat — tvrdý refresh stránky
+ * Zobrazuje sadu tlačítek pro navigaci a CRUD operace nad událostí.
+ * Renderuje se v levém sloupci detail stránky (LargeCard → LeftColumn).
+ *
+ * Pořadí tlačítek:
+ *   Stránka     — odkaz na seznam všech událostí (/list/)
+ *   Zobrazit    — návrat na readonly detail (/view/:id)
+ *   Upravit     — odkaz na editační stránku (/edit/:id)
+ *   Odstranit   — otevře DeleteDialog pro potvrzení smazání
+ *   Aktualizovat — tvrdý refresh stránky (window.location.reload)
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt
+ * @param {string} props.item.id - UUID události
+ * @returns {JSX.Element}
  */
 export const InteractiveMutations = ({ item }) => {
     return (

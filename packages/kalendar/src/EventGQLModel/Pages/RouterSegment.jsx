@@ -10,15 +10,24 @@ import { CreateURI, ReadItemURI, VectorItemsURI } from "../Components"
 /**
  * EventGQLModelRouterSegments — pole route definic pro EventGQLModel entity.
  *
- * URL mapování:
- *   /kalendar/EventGQLModel/list/      → PageVector (seznam eventů)
- *   /kalendar/EventGQLModel/view/:id   → PageReadItem (detail eventu + sub-události + kalendář)
- *   /kalendar/EventGQLModel/edit/:id   → PageUpdateItem (editace eventu)
- *   /kalendar/EventGQLModel/create/    → PageCreateItem (vytvoření eventu)
- *   /kalendar/EventGQLModel/delete/:id → PageDeleteItem (smazání eventu)
+ * Každý objekt obsahuje:
+ *   path    — URL vzor (string, může obsahovat dynamické segmenty jako :id)
+ *   element — React komponenta která se vykreslí při shodě URL
  *
- * PageCalendar byla odstraněna — kalendář je nyní součástí detail stránky
- * (SubeventsVector zobrazuje sub-události v tabulce + kalendáři).
+ * React Router prochází routes shora dolů a použije první shodu.
+ * Fallback routes na konci zachytí libovolnou akci nad seznam nebo entitu.
+ *
+ * URL mapování:
+ *   /kalendar/EventGQLModel/create/     → PageCreateItem (formulář nové události)
+ *   /kalendar/EventGQLModel/list/       → PageVector (seznam událostí s filtrem)
+ *   /kalendar/EventGQLModel/view/:id    → PageReadItem (readonly detail + sub-události)
+ *   /kalendar/EventGQLModel/edit/:id    → PageUpdateItem (editační formulář)
+ *   /kalendar/EventGQLModel/delete/:id  → PageDeleteItem (potvrzení smazání)
+ *
+ * Poznámka: PageCalendar byla odstraněna — kalendář je nyní součástí
+ * detail stránky (SubeventsVector zobrazuje sub-události v tabulce + kalendáři).
+ *
+ * @type {Array<{path: string, element: JSX.Element}>}
  */
 export const EventGQLModelRouterSegments = [
     {
