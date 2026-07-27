@@ -1,8 +1,27 @@
-# Kalendář — deníček vývoje
+# Kalendář
 
-> Školní projekt: React + Redux + Apollo GraphQL kalendářová aplikace pro správu událostí.
+> Školní projekt: Kalendářová aplikace pro správu událostí.
 >
-> **Autoři: Matyáš Kopeček, Vladan Kořenek**   
+> **Autoři:**
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/nwnzk1">
+        <img src="https://github.com/nwnzk1.png" width="60" style="border-radius:50%"/><br/>
+        <sub><b>nwnzk1</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/kopec-221">
+        <img src="https://github.com/kopec-221.png" width="60" style="border-radius:50%"/><br/>
+        <sub><b>kopec-221</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+
 > **Balíček:** `@kopec211/pck_kalendar`, `@kopec211/app_kalendar`  
 > **Stack:** React 19, Redux, Apollo Federation, Bootstrap 5, React Router v7
 
