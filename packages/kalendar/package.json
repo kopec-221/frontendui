@@ -9,13 +9,15 @@
     "_module": "src/index.js",
     "files": [
         "dist",
-        "src"
+        "src",
+        "docs"
     ],
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "vite",
         "build": "vite build",
-        "prepublishOnly": "npm run build"
+        "prepublishOnly": "npm run build",
+        "docs": "jsdoc -c jsdoc.json --verbose"
     },
     "author": "",
     "license": "ISC",
@@ -25,5 +27,8 @@
         "react-router": "^7.0.2",
         "@hrbolek/uoisfrontend-shared": "*",
         "@hrbolek/uoisfrontend-gql-shared": "*"
+    },
+    "devDependencies": {
+        "jsdoc": "^4.0.0"
     }
 }

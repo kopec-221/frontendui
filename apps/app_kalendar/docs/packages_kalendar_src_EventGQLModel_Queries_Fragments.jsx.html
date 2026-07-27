@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: packages/kalendar/src/EventGQLModel/Queries/Fragments.jsx</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: packages/kalendar/src/EventGQLModel/Queries/Fragments.jsx</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { createQueryStrLazy } from "@hrbolek/uoisfrontend-gql-shared"
+
+/**
+ * LinkFragmentStr — minimální data pro zobrazení odkazu na událost.
+ *
+ * Obsahuje pouze základní skalární pole bez vnořených relací (kromě type).
+ * Používá se jako základ pro MediumFragment a LargeFragment.
+ *
+ * Zahrnuje pole: __typename, id, lastchange, created, createdbyId,
+ * changedbyId, rbacobjectId, name, nameEn, startdate, enddate,
+ * valid, place, typeId, type { id, name }
+ *
+ * @type {string}
+ */
+const LinkFragmentStr = `
+fragment Link on EventGQLModel {
+  __typename
+  id
+  lastchange
+  created
+  createdbyId
+  changedbyId
+  rbacobjectId
+  name
+  nameEn
+  startdate
+  enddate
+  valid
+  place
+  typeId
+  type {
+    __typename
+    id
+    name
+  }
+}
+`
+
+/**
+ * MediumFragmentStr — rozšiřuje LinkFragment o popis, facility a RBAC role.
+ *
+ * Přidává k LinkFragment: description, duration_raw, facilityId,
+ * mastereventId a rbacobject s rolemi aktuálního uživatele.
+ * Používá se pro zobrazení v kartách a tabulkách kde potřebujeme
+ * znát oprávnění uživatele.
+ *
+ * @type {string}
+ */
+const MediumFragmentStr = `
+fragment Medium on EventGQLModel {
+  ...Link
+  description
+  duration_raw
+  facilityId
+  mastereventId
+  rbacobject {
+    ...RBRoles
+  }
+}
+`
+
+/**
+ * LargeFragmentStr — plná data události včetně všech relací.
+ *
+ * Rozšiřuje MediumFragment o: createdby, changedby, facility, subevents.
+ * Používá se na detail stránce (PageReadItem) kde potřebujeme všechna data.
+ *
+ * DŮLEŽITÉ: UserGQLModel záměrně NEobsahuje pole "invitations" —
+ * backend mikroslužba "office" má bug kde vrací Python &lt;generator>
+ * místo pole pro invitations. To způsobuje chybu celého GraphQL requestu.
+ * Proto jsou createdby a changedby omezeny pouze na { id, email }.
+ *
+ * @type {string}
+ */
+const LargeFragmentStr = `
+fragment Large on EventGQLModel {
+  ...Medium
+  createdby {
+     __typename
+     id
+     email
+  }
+  changedby {
+     __typename
+     id
+     email
+  }
+  facility {
+     __typename
+     id
+     name
+     address
+  }
+  subevents { 
+     __typename
+     id
+     name
+  }
+}
+`
+
+/**
+ * RBACFragmentStr — role aktuálního uživatele na konkrétní entitě.
+ *
+ * Vrací currentUserRoles které obsahují informace o rolích uživatele
+ * (název role, platnost, skupina...). Používá se pro kontrolu oprávnění
+ * — zda má uživatel právo editovat nebo mazat danou entitu.
+ *
+ * @type {string}
+ */
+const RBACFragmentStr = `
+fragment RBRoles on RBACObjectGQLModel {
+  __typename
+  id
+  currentUserRoles {
+    __typename
+    id
+    lastchange
+    valid
+    startdate
+    enddate
+    roletype {
+      __typename
+      id
+      name
+    }
+    group {
+      __typename
+      id
+      name
+      grouptype {
+        __typename
+        id
+        name
+      }
+    }
+  }
+}`
+
+/**
+ * RBACFragment — sestavený fragment pro RBAC role.
+ * Používá se jako závislost v MediumFragment.
+ */
+export const RBACFragment = createQueryStrLazy(`${RBACFragmentStr}`)
+
+/**
+ * LinkFragment — sestavený fragment s minimálními daty události.
+ * Základ pro MediumFragment a LargeFragment.
+ */
+export const LinkFragment = createQueryStrLazy(`${LinkFragmentStr}`)
+
+/**
+ * MediumFragment — sestavený fragment s rozšířenými daty události.
+ * Závisí na LinkFragment a RBACFragment.
+ */
+export const MediumFragment = createQueryStrLazy(`${MediumFragmentStr}`, LinkFragment, RBACFragment)
+
+/**
+ * LargeFragment — sestavený fragment s plnými daty události včetně relací.
+ * Závisí na MediumFragment (který závisí na LinkFragment a RBACFragment).
+ * Používá se v ReadAsyncAction a ReadPageAsyncAction.
+ */
+export const LargeFragment = createQueryStrLazy(`${LargeFragmentStr}`, MediumFragment)</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#App">App</a></li><li><a href="global.html#AppLayout">AppLayout</a></li><li><a href="global.html#AppNavbar">AppNavbar</a></li><li><a href="global.html#AppRouter">AppRouter</a></li><li><a href="global.html#BackToViewButton">BackToViewButton</a></li><li><a href="global.html#CalendarCell">CalendarCell</a></li><li><a href="global.html#CalendarView">CalendarView</a></li><li><a href="global.html#CardCapsule">CardCapsule</a></li><li><a href="global.html#Children">Children</a></li><li><a href="global.html#ConfirmEdit">ConfirmEdit</a></li><li><a href="global.html#CreateBody">CreateBody</a></li><li><a href="global.html#CreateButton">CreateButton</a></li><li><a href="global.html#CreateDialog">CreateDialog</a></li><li><a href="global.html#CreateLink">CreateLink</a></li><li><a href="global.html#CreateURI">CreateURI</a></li><li><a href="global.html#DAYS_CZ">DAYS_CZ</a></li><li><a href="global.html#DefaultContent">DefaultContent</a></li><li><a href="global.html#DeleteAsyncAction">DeleteAsyncAction</a></li><li><a href="global.html#DeleteBody">DeleteBody</a></li><li><a href="global.html#DeleteButton">DeleteButton</a></li><li><a href="global.html#DeleteDialog">DeleteDialog</a></li><li><a href="global.html#DeleteItemURI">DeleteItemURI</a></li><li><a href="global.html#DeleteLink">DeleteLink</a></li><li><a href="global.html#DeleteMutation">DeleteMutation</a></li><li><a href="global.html#DeleteMutationStr">DeleteMutationStr</a></li><li><a href="global.html#DeleteURI">DeleteURI</a></li><li><a href="global.html#EDITABLE_FIELDS">EDITABLE_FIELDS</a></li><li><a href="global.html#EVENT_COLOR_CLASSES">EVENT_COLOR_CLASSES</a></li><li><a href="global.html#EventGQLModelRouterSegments">EventGQLModelRouterSegments</a></li><li><a href="global.html#EventPill">EventPill</a></li><li><a href="global.html#EventRow">EventRow</a></li><li><a href="global.html#EventSubPage">EventSubPage</a></li><li><a href="global.html#Filter">Filter</a></li><li><a href="global.html#GQLENDPOINT_">GQLENDPOINT_</a></li><li><a href="global.html#InsertAsyncAction">InsertAsyncAction</a></li><li><a href="global.html#InsertMutation">InsertMutation</a></li><li><a href="global.html#InsertMutationStr">InsertMutationStr</a></li><li><a href="global.html#InteractiveMutations">InteractiveMutations</a></li><li><a href="global.html#LargeCard">LargeCard</a></li><li><a href="global.html#LargeFragment">LargeFragment</a></li><li><a href="global.html#LargeFragmentStr">LargeFragmentStr</a></li><li><a href="global.html#Link">Link</a></li><li><a href="global.html#LinkFragment">LinkFragment</a></li><li><a href="global.html#LinkFragmentStr">LinkFragmentStr</a></li><li><a href="global.html#LinkURI">LinkURI</a></li><li><a href="global.html#ListURI">ListURI</a></li><li><a href="global.html#LiveEdit">LiveEdit</a></li><li><a href="global.html#LiveEditWrapper">LiveEditWrapper</a></li><li><a href="global.html#MONTHS_CZ">MONTHS_CZ</a></li><li><a href="global.html#MediumCard">MediumCard</a></li><li><a href="global.html#MediumCardScalars">MediumCardScalars</a></li><li><a href="global.html#MediumCardVectors">MediumCardVectors</a></li><li><a href="global.html#MediumContent">MediumContent</a></li><li><a href="global.html#MediumEditableContent">MediumEditableContent</a></li><li><a href="global.html#MediumFragment">MediumFragment</a></li><li><a href="global.html#MediumFragmentStr">MediumFragmentStr</a></li><li><a href="global.html#MutationAsyncAction">MutationAsyncAction</a></li><li><a href="global.html#MyNavDropdown">MyNavDropdown</a></li><li><a href="global.html#PageBase">PageBase</a></li><li><a href="global.html#PageBody">PageBody</a></li><li><a href="global.html#PageCreateItem">PageCreateItem</a></li><li><a href="global.html#PageDeleteItem">PageDeleteItem</a></li><li><a href="global.html#PageItemBase">PageItemBase</a></li><li><a href="global.html#PageLink">PageLink</a></li><li><a href="global.html#PageReadItem">PageReadItem</a></li><li><a href="global.html#PageReadItemRolesOn">PageReadItemRolesOn</a></li><li><a href="global.html#PageUpdateItem">PageUpdateItem</a></li><li><a href="global.html#PageVector">PageVector</a></li><li><a href="global.html#RBACFragment">RBACFragment</a></li><li><a href="global.html#RBACFragmentStr">RBACFragmentStr</a></li><li><a href="global.html#ReadAsyncAction">ReadAsyncAction</a></li><li><a href="global.html#ReadItemURI">ReadItemURI</a></li><li><a href="global.html#ReadPageAsyncAction">ReadPageAsyncAction</a></li><li><a href="global.html#ReadPageQuery">ReadPageQuery</a></li><li><a href="global.html#ReadPageQueryStr">ReadPageQueryStr</a></li><li><a href="global.html#ReadQuery">ReadQuery</a></li><li><a href="global.html#ReadQueryStr">ReadQueryStr</a></li><li><a href="global.html#ReadURI">ReadURI</a></li><li><a href="global.html#RolesOnURI">RolesOnURI</a></li><li><a href="global.html#Routes">Routes</a></li><li><a href="global.html#SafeDeleteAsyncAction">SafeDeleteAsyncAction</a></li><li><a href="global.html#ScalarAttributeBase">ScalarAttributeBase</a></li><li><a href="global.html#ScalarAttributeBind">ScalarAttributeBind</a></li><li><a href="global.html#ScalarAttributeCapsule">ScalarAttributeCapsule</a></li><li><a href="global.html#SearchAsyncAction">SearchAsyncAction</a></li><li><a href="global.html#SearchAsyncActionQuery">SearchAsyncActionQuery</a></li><li><a href="global.html#SearchQueryStr">SearchQueryStr</a></li><li><a href="global.html#SubeventRow">SubeventRow</a></li><li><a href="global.html#SubeventsCalendar">SubeventsCalendar</a></li><li><a href="global.html#SubeventsVector">SubeventsVector</a></li><li><a href="global.html#Table">Table</a></li><li><a href="global.html#TemplateScalarAttribute">TemplateScalarAttribute</a></li><li><a href="global.html#TemplateScalarAttributeAsyncAction">TemplateScalarAttributeAsyncAction</a></li><li><a href="global.html#TemplateScalarAttributeLazy">TemplateScalarAttributeLazy</a></li><li><a href="global.html#TemplateScalarAttributeQuery">TemplateScalarAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute">TemplateVectorsAttribute</a></li><li><a href="global.html#TemplateVectorsAttributeAsyncAction">TemplateVectorsAttributeAsyncAction</a></li><li><a href="global.html#TemplateVectorsAttributeInfinite">TemplateVectorsAttributeInfinite</a></li><li><a href="global.html#TemplateVectorsAttributeLazy">TemplateVectorsAttributeLazy</a></li><li><a href="global.html#TemplateVectorsAttributeQuery">TemplateVectorsAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute_old">TemplateVectorsAttribute_old</a></li><li><a href="global.html#TrivialVisualiserDiv">TrivialVisualiserDiv</a></li><li><a href="global.html#UpdateBody">UpdateBody</a></li><li><a href="global.html#UpdateButton">UpdateButton</a></li><li><a href="global.html#UpdateDialog">UpdateDialog</a></li><li><a href="global.html#UpdateItemURI">UpdateItemURI</a></li><li><a href="global.html#UpdateLink">UpdateLink</a></li><li><a href="global.html#UpdateMutationStr">UpdateMutationStr</a></li><li><a href="global.html#UpdateURI">UpdateURI</a></li><li><a href="global.html#VectorAttribute">VectorAttribute</a></li><li><a href="global.html#VectorAttributeFactory">VectorAttributeFactory</a></li><li><a href="global.html#VectorAttribute_">VectorAttribute_</a></li><li><a href="global.html#VectorItemsURI">VectorItemsURI</a></li><li><a href="global.html#VectorsVisualiser">VectorsVisualiser</a></li><li><a href="global.html#attributeTransformer">attributeTransformer</a></li><li><a href="global.html#filterParameterName">filterParameterName</a></li><li><a href="global.html#followUpTemplateVectorItemDelete">followUpTemplateVectorItemDelete</a></li><li><a href="global.html#followUpTemplateVectorItemInsert">followUpTemplateVectorItemInsert</a></li><li><a href="global.html#followUpTemplateVectorItemUpdate">followUpTemplateVectorItemUpdate</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatForDateTimeLocal">formatForDateTimeLocal</a></li><li><a href="global.html#formatTime">formatTime</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#getColorClassForEvent">getColorClassForEvent</a></li><li><a href="global.html#getEventsForDay">getEventsForDay</a></li><li><a href="global.html#idParam">idParam</a></li><li><a href="global.html#makeMutationURI">makeMutationURI</a></li><li><a href="global.html#modelURI">modelURI</a></li><li><a href="global.html#mount">mount</a></li><li><a href="global.html#mutationAsyncAction">mutationAsyncAction</a></li><li><a href="global.html#payloadBuilder">payloadBuilder</a></li><li><a href="global.html#permissions">permissions</a></li><li><a href="global.html#router">router</a></li><li><a href="global.html#safeParseWhere">safeParseWhere</a></li><li><a href="global.html#stripToEditableFields">stripToEditableFields</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Mon Jul 27 2026 12:25:21 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

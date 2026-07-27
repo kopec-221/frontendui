@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: packages/kalendar/src/EventGQLModel/Vectors/SubeventsVector.jsx</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: packages/kalendar/src/EventGQLModel/Vectors/SubeventsVector.jsx</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { useState } from "react"
+import { useSelector } from "react-redux"
+import { selectItemById } from "../../../../dynamic/src/Store"
+import { CreateButton } from "../Mutations/Create"
+import { UpdateButton } from "../Mutations/Update"
+import { DeleteButton } from "../Mutations/Delete"
+import { CalendarView } from "../Components/CalendarView"
+
+/**
+ * formatDate — převede ISO datum na čitelný formát pro českou lokalizaci.
+ *
+ * @param {string|null} d - ISO datum string nebo null
+ * @returns {string} formátované datum "DD. MM. YYYY HH:MM" nebo "—" pokud datum chybí
+ */
+const formatDate = (d) => d ? new Date(d).toLocaleString("cs-CZ", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+}) : "—"
+
+/**
+ * SubeventRow — jeden řádek v tabulce sub-událostí.
+ *
+ * Načítá plná data sub-eventu ze Redux store podle id přes selectItemById.
+ * Renderuje null pokud entita ve store ještě není (načítá se).
+ *
+ * Používá UpdateButton a DeleteButton z Mutations/ složky která má
+ * nastavenou roli "plánovací administrátor" — ne z _template kde
+ * je výchozí role "superadmin".
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} props.id - UUID sub-události k zobrazení
+ * @returns {JSX.Element|null} řádek tabulky nebo null pokud entita není ve store
+ */
+const SubeventRow = ({ id }) => {
+    const item = useSelector(s => selectItemById(s, id))
+    if (!item) return null
+
+    return (
+        &lt;tr>
+            &lt;td>&lt;a href={`/kalendar/EventGQLModel/view/${item.id}`}>{item.name || item.id}&lt;/a>&lt;/td>
+            &lt;td>{formatDate(item.startdate)}&lt;/td>
+            &lt;td>{formatDate(item.enddate)}&lt;/td>
+            &lt;td>{item.place || "—"}&lt;/td>
+            &lt;td>
+                &lt;div className="d-flex gap-1">
+                    &lt;UpdateButton item={item} />
+                    &lt;DeleteButton item={item} />
+                &lt;/div>
+            &lt;/td>
+        &lt;/tr>
+    )
+}
+
+/**
+ * SubeventsCalendar — kalendářový pohled zobrazující pouze sub-události dané události.
+ *
+ * Načte plná data všech sub-událostí ze Redux store podle jejich id.
+ * filter(Boolean) odstraní undefined hodnoty pro případ že entita
+ * ještě není ve store načtena.
+ *
+ * Inicializuje currentDate na měsíc první sub-události která má datum.
+ * Pokud žádná nemá datum, použije aktuální měsíc.
+ *
+ * @component
+ * @param {Object} props
+ * @param {string[]} props.subeventIds - pole UUID sub-událostí k zobrazení
+ * @returns {JSX.Element}
+ */
+const SubeventsCalendar = ({ subeventIds }) => {
+    const allSubevents = useSelector(s =>
+        subeventIds.map(id => selectItemById(s, id)).filter(Boolean)
+    )
+
+    /**
+     * initialDate — počáteční měsíc kalendáře.
+     * Nastaven na měsíc první sub-události s datem, jinak na aktuální měsíc.
+     */
+    const firstWithDate = allSubevents.find(e => e?.startdate)
+    const initialDate = firstWithDate ? new Date(firstWithDate.startdate) : new Date()
+
+    const [currentDate, setCurrentDate] = useState(
+        new Date(initialDate.getFullYear(), initialDate.getMonth(), 1)
+    )
+
+    return (
+        &lt;CalendarView
+            items={allSubevents}
+            currentDate={currentDate}
+            onPrev={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+            onNext={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+        />
+    )
+}
+
+/**
+ * SubeventsVector — zobrazení sub-událostí nadřazené události jako tabulka + kalendář.
+ *
+ * Vždy zobrazuje obojí najednou (bez přepínače):
+ *   1. Tabulka sub-událostí — seznam s CRUD operacemi (Přidat, Editovat, Odstranit)
+ *   2. Kalendář sub-událostí — CalendarView zobrazující pouze sub-události
+ *      této konkrétní události (ne všechny eventy v systému)
+ *
+ * Renderuje se v MiddleColumn detail stránky (PageReadItem → EventSubPage).
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.item - EventGQLModel objekt nadřazené události
+ * @param {Array} [props.item.subevents] - seznam sub-událostí (obsahuje { id, name })
+ * @returns {JSX.Element}
+ */
+export const SubeventsVector = ({ item }) => {
+    const subevents = item?.subevents || []
+    const subeventIds = subevents.map(s => s?.id).filter(Boolean)
+
+    return (
+        &lt;div>
+            {/* Tabulka sub-událostí */}
+            &lt;div className="card mb-3">
+                &lt;div className="card-header py-2 d-flex justify-content-between align-items-center">
+                    &lt;span className="fw-semibold small">
+                        Sub-události ({subevents.length})
+                    &lt;/span>
+                    &lt;CreateButton item={item}>
+                        + Přidat sub-event
+                    &lt;/CreateButton>
+                &lt;/div>
+                &lt;div className="card-body p-0">
+                    {subevents.length === 0
+                        ? &lt;p className="text-muted text-center py-3 mb-0 small">Žádné sub-události. Klikněte na "+ Přidat sub-event".&lt;/p>
+                        : (
+                            &lt;table className="table table-sm table-hover mb-0 small">
+                                &lt;thead>
+                                    &lt;tr>
+                                        &lt;th>Název&lt;/th>&lt;th>Začátek&lt;/th>&lt;th>Konec&lt;/th>&lt;th>Místo&lt;/th>&lt;th>Nástroje&lt;/th>
+                                    &lt;/tr>
+                                &lt;/thead>
+                                &lt;tbody>
+                                    {subevents.map(s => &lt;SubeventRow key={s.id} id={s.id} />)}
+                                &lt;/tbody>
+                            &lt;/table>
+                        )
+                    }
+                &lt;/div>
+            &lt;/div>
+
+            {/* Kalendář sub-událostí */}
+            &lt;div className="card">
+                &lt;div className="card-header py-2">
+                    &lt;span className="fw-semibold small">Kalendář&lt;/span>
+                &lt;/div>
+                &lt;div className="card-body">
+                    &lt;SubeventsCalendar subeventIds={subeventIds} />
+                &lt;/div>
+            &lt;/div>
+        &lt;/div>
+    )
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#App">App</a></li><li><a href="global.html#AppLayout">AppLayout</a></li><li><a href="global.html#AppNavbar">AppNavbar</a></li><li><a href="global.html#AppRouter">AppRouter</a></li><li><a href="global.html#BackToViewButton">BackToViewButton</a></li><li><a href="global.html#CalendarCell">CalendarCell</a></li><li><a href="global.html#CalendarView">CalendarView</a></li><li><a href="global.html#CardCapsule">CardCapsule</a></li><li><a href="global.html#Children">Children</a></li><li><a href="global.html#ConfirmEdit">ConfirmEdit</a></li><li><a href="global.html#CreateBody">CreateBody</a></li><li><a href="global.html#CreateButton">CreateButton</a></li><li><a href="global.html#CreateDialog">CreateDialog</a></li><li><a href="global.html#CreateLink">CreateLink</a></li><li><a href="global.html#CreateURI">CreateURI</a></li><li><a href="global.html#DAYS_CZ">DAYS_CZ</a></li><li><a href="global.html#DefaultContent">DefaultContent</a></li><li><a href="global.html#DeleteAsyncAction">DeleteAsyncAction</a></li><li><a href="global.html#DeleteBody">DeleteBody</a></li><li><a href="global.html#DeleteButton">DeleteButton</a></li><li><a href="global.html#DeleteDialog">DeleteDialog</a></li><li><a href="global.html#DeleteItemURI">DeleteItemURI</a></li><li><a href="global.html#DeleteLink">DeleteLink</a></li><li><a href="global.html#DeleteMutation">DeleteMutation</a></li><li><a href="global.html#DeleteMutationStr">DeleteMutationStr</a></li><li><a href="global.html#DeleteURI">DeleteURI</a></li><li><a href="global.html#EDITABLE_FIELDS">EDITABLE_FIELDS</a></li><li><a href="global.html#EVENT_COLOR_CLASSES">EVENT_COLOR_CLASSES</a></li><li><a href="global.html#EventGQLModelRouterSegments">EventGQLModelRouterSegments</a></li><li><a href="global.html#EventPill">EventPill</a></li><li><a href="global.html#EventRow">EventRow</a></li><li><a href="global.html#EventSubPage">EventSubPage</a></li><li><a href="global.html#Filter">Filter</a></li><li><a href="global.html#GQLENDPOINT_">GQLENDPOINT_</a></li><li><a href="global.html#InsertAsyncAction">InsertAsyncAction</a></li><li><a href="global.html#InsertMutation">InsertMutation</a></li><li><a href="global.html#InsertMutationStr">InsertMutationStr</a></li><li><a href="global.html#InteractiveMutations">InteractiveMutations</a></li><li><a href="global.html#LargeCard">LargeCard</a></li><li><a href="global.html#LargeFragment">LargeFragment</a></li><li><a href="global.html#LargeFragmentStr">LargeFragmentStr</a></li><li><a href="global.html#Link">Link</a></li><li><a href="global.html#LinkFragment">LinkFragment</a></li><li><a href="global.html#LinkFragmentStr">LinkFragmentStr</a></li><li><a href="global.html#LinkURI">LinkURI</a></li><li><a href="global.html#ListURI">ListURI</a></li><li><a href="global.html#LiveEdit">LiveEdit</a></li><li><a href="global.html#LiveEditWrapper">LiveEditWrapper</a></li><li><a href="global.html#MONTHS_CZ">MONTHS_CZ</a></li><li><a href="global.html#MediumCard">MediumCard</a></li><li><a href="global.html#MediumCardScalars">MediumCardScalars</a></li><li><a href="global.html#MediumCardVectors">MediumCardVectors</a></li><li><a href="global.html#MediumContent">MediumContent</a></li><li><a href="global.html#MediumEditableContent">MediumEditableContent</a></li><li><a href="global.html#MediumFragment">MediumFragment</a></li><li><a href="global.html#MediumFragmentStr">MediumFragmentStr</a></li><li><a href="global.html#MutationAsyncAction">MutationAsyncAction</a></li><li><a href="global.html#MyNavDropdown">MyNavDropdown</a></li><li><a href="global.html#PageBase">PageBase</a></li><li><a href="global.html#PageBody">PageBody</a></li><li><a href="global.html#PageCreateItem">PageCreateItem</a></li><li><a href="global.html#PageDeleteItem">PageDeleteItem</a></li><li><a href="global.html#PageItemBase">PageItemBase</a></li><li><a href="global.html#PageLink">PageLink</a></li><li><a href="global.html#PageReadItem">PageReadItem</a></li><li><a href="global.html#PageReadItemRolesOn">PageReadItemRolesOn</a></li><li><a href="global.html#PageUpdateItem">PageUpdateItem</a></li><li><a href="global.html#PageVector">PageVector</a></li><li><a href="global.html#RBACFragment">RBACFragment</a></li><li><a href="global.html#RBACFragmentStr">RBACFragmentStr</a></li><li><a href="global.html#ReadAsyncAction">ReadAsyncAction</a></li><li><a href="global.html#ReadItemURI">ReadItemURI</a></li><li><a href="global.html#ReadPageAsyncAction">ReadPageAsyncAction</a></li><li><a href="global.html#ReadPageQuery">ReadPageQuery</a></li><li><a href="global.html#ReadPageQueryStr">ReadPageQueryStr</a></li><li><a href="global.html#ReadQuery">ReadQuery</a></li><li><a href="global.html#ReadQueryStr">ReadQueryStr</a></li><li><a href="global.html#ReadURI">ReadURI</a></li><li><a href="global.html#RolesOnURI">RolesOnURI</a></li><li><a href="global.html#Routes">Routes</a></li><li><a href="global.html#SafeDeleteAsyncAction">SafeDeleteAsyncAction</a></li><li><a href="global.html#ScalarAttributeBase">ScalarAttributeBase</a></li><li><a href="global.html#ScalarAttributeBind">ScalarAttributeBind</a></li><li><a href="global.html#ScalarAttributeCapsule">ScalarAttributeCapsule</a></li><li><a href="global.html#SearchAsyncAction">SearchAsyncAction</a></li><li><a href="global.html#SearchAsyncActionQuery">SearchAsyncActionQuery</a></li><li><a href="global.html#SearchQueryStr">SearchQueryStr</a></li><li><a href="global.html#SubeventRow">SubeventRow</a></li><li><a href="global.html#SubeventsCalendar">SubeventsCalendar</a></li><li><a href="global.html#SubeventsVector">SubeventsVector</a></li><li><a href="global.html#Table">Table</a></li><li><a href="global.html#TemplateScalarAttribute">TemplateScalarAttribute</a></li><li><a href="global.html#TemplateScalarAttributeAsyncAction">TemplateScalarAttributeAsyncAction</a></li><li><a href="global.html#TemplateScalarAttributeLazy">TemplateScalarAttributeLazy</a></li><li><a href="global.html#TemplateScalarAttributeQuery">TemplateScalarAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute">TemplateVectorsAttribute</a></li><li><a href="global.html#TemplateVectorsAttributeAsyncAction">TemplateVectorsAttributeAsyncAction</a></li><li><a href="global.html#TemplateVectorsAttributeInfinite">TemplateVectorsAttributeInfinite</a></li><li><a href="global.html#TemplateVectorsAttributeLazy">TemplateVectorsAttributeLazy</a></li><li><a href="global.html#TemplateVectorsAttributeQuery">TemplateVectorsAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute_old">TemplateVectorsAttribute_old</a></li><li><a href="global.html#TrivialVisualiserDiv">TrivialVisualiserDiv</a></li><li><a href="global.html#UpdateBody">UpdateBody</a></li><li><a href="global.html#UpdateButton">UpdateButton</a></li><li><a href="global.html#UpdateDialog">UpdateDialog</a></li><li><a href="global.html#UpdateItemURI">UpdateItemURI</a></li><li><a href="global.html#UpdateLink">UpdateLink</a></li><li><a href="global.html#UpdateMutationStr">UpdateMutationStr</a></li><li><a href="global.html#UpdateURI">UpdateURI</a></li><li><a href="global.html#VectorAttribute">VectorAttribute</a></li><li><a href="global.html#VectorAttributeFactory">VectorAttributeFactory</a></li><li><a href="global.html#VectorAttribute_">VectorAttribute_</a></li><li><a href="global.html#VectorItemsURI">VectorItemsURI</a></li><li><a href="global.html#VectorsVisualiser">VectorsVisualiser</a></li><li><a href="global.html#attributeTransformer">attributeTransformer</a></li><li><a href="global.html#filterParameterName">filterParameterName</a></li><li><a href="global.html#followUpTemplateVectorItemDelete">followUpTemplateVectorItemDelete</a></li><li><a href="global.html#followUpTemplateVectorItemInsert">followUpTemplateVectorItemInsert</a></li><li><a href="global.html#followUpTemplateVectorItemUpdate">followUpTemplateVectorItemUpdate</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatForDateTimeLocal">formatForDateTimeLocal</a></li><li><a href="global.html#formatTime">formatTime</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#getColorClassForEvent">getColorClassForEvent</a></li><li><a href="global.html#getEventsForDay">getEventsForDay</a></li><li><a href="global.html#idParam">idParam</a></li><li><a href="global.html#makeMutationURI">makeMutationURI</a></li><li><a href="global.html#modelURI">modelURI</a></li><li><a href="global.html#mount">mount</a></li><li><a href="global.html#mutationAsyncAction">mutationAsyncAction</a></li><li><a href="global.html#payloadBuilder">payloadBuilder</a></li><li><a href="global.html#permissions">permissions</a></li><li><a href="global.html#router">router</a></li><li><a href="global.html#safeParseWhere">safeParseWhere</a></li><li><a href="global.html#stripToEditableFields">stripToEditableFields</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Mon Jul 27 2026 12:25:21 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: packages/kalendar/src/EventGQLModel/Pages/PageVector.jsx</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: packages/kalendar/src/EventGQLModel/Pages/PageVector.jsx</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { ReadPageAsyncAction } from "../Queries"
+import { useInfiniteScroll } from "../../../../dynamic/src/Hooks/useInfiniteScroll"
+import { PageBase } from "./PageBase"
+import { Table } from "../Components/Table"
+import { Filter } from "../Components/Filter"
+import { FilterButton, ResetFilterButton } from "../../../../_template/src/Base/FormControls/Filter"
+import { useSearchParams } from "react-router"
+import { useEffect, useMemo } from "react"
+import { AsyncStateIndicator } from "../../../../_template/src/Base/Helpers/AsyncStateIndicator"
+import { Collapsible } from "../../../../_template/src/Base/FormControls/Collapsible"
+
+/**
+ * safeParseWhere — bezpečně parsuje JSON where filtr z URL query parametru.
+ *
+ * Vrátí null pokud:
+ *   - parametr v URL chybí
+ *   - hodnota není validní JSON
+ *   - hodnota není objekt (např. je to string nebo číslo)
+ *
+ * @param {URLSearchParams} sp - URL search params objekt
+ * @param {string} [paramName="where"] - název URL parametru s filtrem
+ * @returns {Object|null} parsovaný where objekt nebo null
+ */
+function safeParseWhere(sp, paramName = "where") {
+    const raw = sp.get(paramName)
+    if (!raw) return null
+    try {
+        const obj = JSON.parse(raw)
+        return obj &amp;&amp; typeof obj === "object" ? obj : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * filterParameterName — název URL query parametru pro uložení where filtru.
+ *
+ * Filtr se ukládá jako JSON do URL aby byl sdílitelný odkazem.
+ * Příklad URL: /list/?gr_where={"name":{"_ilike":"%projekt%"}}
+ *
+ * @type {string}
+ */
+const filterParameterName = "gr_where"
+
+/**
+ * PageVector — seznam všech událostí s filtrací a infinite scrollem.
+ *
+ * URL: /kalendar/EventGQLModel/list/
+ *
+ * Obsahuje:
+ *   - skrývatelný filtrační panel (Název, Začátek od, Konec do)
+ *   - tabulku událostí s kliknutím na řádek → detail stránka
+ *   - infinite scroll pro automatické načítání dalších záznamů
+ *
+ * Jak funguje filtr:
+ *   1. Uživatel vyplní pole a klikne "Filtrovat"
+ *   2. FilterButton uloží where JSON do URL parametru gr_where
+ *   3. useSearchParams detekuje změnu URL
+ *   4. useMemo přepočítá whereFromUrl
+ *   5. useEffect detekuje změnu whereFromUrl a zavolá restart()
+ *   6. restart() načte data znovu od začátku s novým filtrem
+ *
+ * @component
+ * @param {Object} props
+ * @param {React.ReactNode} [props.children] - volitelný dodatečný obsah
+ * @param {Function} [props.queryAsyncAction=ReadPageAsyncAction]
+ *   Async action pro načtení seznamu událostí. Lze přepsat pro customizaci dotazu.
+ * @returns {JSX.Element}
+ */
+export const PageVector = ({ children, queryAsyncAction = ReadPageAsyncAction }) => {
+    const [sp] = useSearchParams()
+
+    /**
+     * whereFromUrl — where filtr načtený z URL query parametru gr_where.
+     *
+     * useMemo zajistí že se JSON.parse nevolá při každém renderu,
+     * ale pouze když se změní URL search params.
+     */
+    const whereFromUrl = useMemo(
+        () => safeParseWhere(sp, filterParameterName),
+        [sp.toString()]
+    )
+
+    const { items, loading, error, hasMore, sentinelRef, loadMore, restart } = useInfiniteScroll({
+        asyncAction: queryAsyncAction,
+        actionParams: { skip: 0, limit: 25, where: whereFromUrl },
+    })
+
+    /**
+     * useEffect — spustí restart() při každé změně filtru.
+     *
+     * Prázdné pole závislostí by způsobilo načtení jen při mountu.
+     * [whereFromUrl] zajistí opětovné načtení při každé změně filtru.
+     */
+    useEffect(() => {
+        const params = { skip: 0, limit: 25, where: whereFromUrl }
+        restart(params)
+    }, [whereFromUrl])
+
+    return (
+        &lt;PageBase>
+            {/* Skrývatelný filtrační panel */}
+            &lt;Collapsible
+                className="form-control btn btn-outline-primary"
+                buttonLabelCollapsed="Zobrazit filtr"
+                buttonLabelExpanded="Skrýt filtr"
+            >
+                &lt;Filter>
+                    &lt;FilterButton
+                        className="form-control btn btn-outline-success"
+                        paramName={filterParameterName}
+                    >
+                        Filtrovat
+                    &lt;/FilterButton>
+                    &lt;ResetFilterButton
+                        className="form-control btn btn-warning"
+                        paramName={filterParameterName}
+                    >
+                        Vymazat filtr
+                    &lt;/ResetFilterButton>
+                &lt;/Filter>
+            &lt;/Collapsible>
+
+            &lt;Table data={items} />
+
+            &lt;AsyncStateIndicator error={error} loading={loading} text="Nahrávám další..." />
+
+            {hasMore &amp;&amp; &lt;div ref={sentinelRef} style={{ height: 80, backgroundColor: "lightgray" }} />}
+            {hasMore &amp;&amp; &lt;button className="btn btn-success form-control" onClick={() => loadMore()}>Více&lt;/button>}
+        &lt;/PageBase>
+    )
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#App">App</a></li><li><a href="global.html#AppLayout">AppLayout</a></li><li><a href="global.html#AppNavbar">AppNavbar</a></li><li><a href="global.html#AppRouter">AppRouter</a></li><li><a href="global.html#BackToViewButton">BackToViewButton</a></li><li><a href="global.html#CalendarCell">CalendarCell</a></li><li><a href="global.html#CalendarView">CalendarView</a></li><li><a href="global.html#CardCapsule">CardCapsule</a></li><li><a href="global.html#Children">Children</a></li><li><a href="global.html#ConfirmEdit">ConfirmEdit</a></li><li><a href="global.html#CreateBody">CreateBody</a></li><li><a href="global.html#CreateButton">CreateButton</a></li><li><a href="global.html#CreateDialog">CreateDialog</a></li><li><a href="global.html#CreateLink">CreateLink</a></li><li><a href="global.html#CreateURI">CreateURI</a></li><li><a href="global.html#DAYS_CZ">DAYS_CZ</a></li><li><a href="global.html#DefaultContent">DefaultContent</a></li><li><a href="global.html#DeleteAsyncAction">DeleteAsyncAction</a></li><li><a href="global.html#DeleteBody">DeleteBody</a></li><li><a href="global.html#DeleteButton">DeleteButton</a></li><li><a href="global.html#DeleteDialog">DeleteDialog</a></li><li><a href="global.html#DeleteItemURI">DeleteItemURI</a></li><li><a href="global.html#DeleteLink">DeleteLink</a></li><li><a href="global.html#DeleteMutation">DeleteMutation</a></li><li><a href="global.html#DeleteMutationStr">DeleteMutationStr</a></li><li><a href="global.html#DeleteURI">DeleteURI</a></li><li><a href="global.html#EDITABLE_FIELDS">EDITABLE_FIELDS</a></li><li><a href="global.html#EVENT_COLOR_CLASSES">EVENT_COLOR_CLASSES</a></li><li><a href="global.html#EventGQLModelRouterSegments">EventGQLModelRouterSegments</a></li><li><a href="global.html#EventPill">EventPill</a></li><li><a href="global.html#EventRow">EventRow</a></li><li><a href="global.html#EventSubPage">EventSubPage</a></li><li><a href="global.html#Filter">Filter</a></li><li><a href="global.html#GQLENDPOINT_">GQLENDPOINT_</a></li><li><a href="global.html#InsertAsyncAction">InsertAsyncAction</a></li><li><a href="global.html#InsertMutation">InsertMutation</a></li><li><a href="global.html#InsertMutationStr">InsertMutationStr</a></li><li><a href="global.html#InteractiveMutations">InteractiveMutations</a></li><li><a href="global.html#LargeCard">LargeCard</a></li><li><a href="global.html#LargeFragment">LargeFragment</a></li><li><a href="global.html#LargeFragmentStr">LargeFragmentStr</a></li><li><a href="global.html#Link">Link</a></li><li><a href="global.html#LinkFragment">LinkFragment</a></li><li><a href="global.html#LinkFragmentStr">LinkFragmentStr</a></li><li><a href="global.html#LinkURI">LinkURI</a></li><li><a href="global.html#ListURI">ListURI</a></li><li><a href="global.html#LiveEdit">LiveEdit</a></li><li><a href="global.html#LiveEditWrapper">LiveEditWrapper</a></li><li><a href="global.html#MONTHS_CZ">MONTHS_CZ</a></li><li><a href="global.html#MediumCard">MediumCard</a></li><li><a href="global.html#MediumCardScalars">MediumCardScalars</a></li><li><a href="global.html#MediumCardVectors">MediumCardVectors</a></li><li><a href="global.html#MediumContent">MediumContent</a></li><li><a href="global.html#MediumEditableContent">MediumEditableContent</a></li><li><a href="global.html#MediumFragment">MediumFragment</a></li><li><a href="global.html#MediumFragmentStr">MediumFragmentStr</a></li><li><a href="global.html#MutationAsyncAction">MutationAsyncAction</a></li><li><a href="global.html#MyNavDropdown">MyNavDropdown</a></li><li><a href="global.html#PageBase">PageBase</a></li><li><a href="global.html#PageBody">PageBody</a></li><li><a href="global.html#PageCreateItem">PageCreateItem</a></li><li><a href="global.html#PageDeleteItem">PageDeleteItem</a></li><li><a href="global.html#PageItemBase">PageItemBase</a></li><li><a href="global.html#PageLink">PageLink</a></li><li><a href="global.html#PageReadItem">PageReadItem</a></li><li><a href="global.html#PageReadItemRolesOn">PageReadItemRolesOn</a></li><li><a href="global.html#PageUpdateItem">PageUpdateItem</a></li><li><a href="global.html#PageVector">PageVector</a></li><li><a href="global.html#RBACFragment">RBACFragment</a></li><li><a href="global.html#RBACFragmentStr">RBACFragmentStr</a></li><li><a href="global.html#ReadAsyncAction">ReadAsyncAction</a></li><li><a href="global.html#ReadItemURI">ReadItemURI</a></li><li><a href="global.html#ReadPageAsyncAction">ReadPageAsyncAction</a></li><li><a href="global.html#ReadPageQuery">ReadPageQuery</a></li><li><a href="global.html#ReadPageQueryStr">ReadPageQueryStr</a></li><li><a href="global.html#ReadQuery">ReadQuery</a></li><li><a href="global.html#ReadQueryStr">ReadQueryStr</a></li><li><a href="global.html#ReadURI">ReadURI</a></li><li><a href="global.html#RolesOnURI">RolesOnURI</a></li><li><a href="global.html#Routes">Routes</a></li><li><a href="global.html#SafeDeleteAsyncAction">SafeDeleteAsyncAction</a></li><li><a href="global.html#ScalarAttributeBase">ScalarAttributeBase</a></li><li><a href="global.html#ScalarAttributeBind">ScalarAttributeBind</a></li><li><a href="global.html#ScalarAttributeCapsule">ScalarAttributeCapsule</a></li><li><a href="global.html#SearchAsyncAction">SearchAsyncAction</a></li><li><a href="global.html#SearchAsyncActionQuery">SearchAsyncActionQuery</a></li><li><a href="global.html#SearchQueryStr">SearchQueryStr</a></li><li><a href="global.html#SubeventRow">SubeventRow</a></li><li><a href="global.html#SubeventsCalendar">SubeventsCalendar</a></li><li><a href="global.html#SubeventsVector">SubeventsVector</a></li><li><a href="global.html#Table">Table</a></li><li><a href="global.html#TemplateScalarAttribute">TemplateScalarAttribute</a></li><li><a href="global.html#TemplateScalarAttributeAsyncAction">TemplateScalarAttributeAsyncAction</a></li><li><a href="global.html#TemplateScalarAttributeLazy">TemplateScalarAttributeLazy</a></li><li><a href="global.html#TemplateScalarAttributeQuery">TemplateScalarAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute">TemplateVectorsAttribute</a></li><li><a href="global.html#TemplateVectorsAttributeAsyncAction">TemplateVectorsAttributeAsyncAction</a></li><li><a href="global.html#TemplateVectorsAttributeInfinite">TemplateVectorsAttributeInfinite</a></li><li><a href="global.html#TemplateVectorsAttributeLazy">TemplateVectorsAttributeLazy</a></li><li><a href="global.html#TemplateVectorsAttributeQuery">TemplateVectorsAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute_old">TemplateVectorsAttribute_old</a></li><li><a href="global.html#TrivialVisualiserDiv">TrivialVisualiserDiv</a></li><li><a href="global.html#UpdateBody">UpdateBody</a></li><li><a href="global.html#UpdateButton">UpdateButton</a></li><li><a href="global.html#UpdateDialog">UpdateDialog</a></li><li><a href="global.html#UpdateItemURI">UpdateItemURI</a></li><li><a href="global.html#UpdateLink">UpdateLink</a></li><li><a href="global.html#UpdateMutationStr">UpdateMutationStr</a></li><li><a href="global.html#UpdateURI">UpdateURI</a></li><li><a href="global.html#VectorAttribute">VectorAttribute</a></li><li><a href="global.html#VectorAttributeFactory">VectorAttributeFactory</a></li><li><a href="global.html#VectorAttribute_">VectorAttribute_</a></li><li><a href="global.html#VectorItemsURI">VectorItemsURI</a></li><li><a href="global.html#VectorsVisualiser">VectorsVisualiser</a></li><li><a href="global.html#attributeTransformer">attributeTransformer</a></li><li><a href="global.html#filterParameterName">filterParameterName</a></li><li><a href="global.html#followUpTemplateVectorItemDelete">followUpTemplateVectorItemDelete</a></li><li><a href="global.html#followUpTemplateVectorItemInsert">followUpTemplateVectorItemInsert</a></li><li><a href="global.html#followUpTemplateVectorItemUpdate">followUpTemplateVectorItemUpdate</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatForDateTimeLocal">formatForDateTimeLocal</a></li><li><a href="global.html#formatTime">formatTime</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#getColorClassForEvent">getColorClassForEvent</a></li><li><a href="global.html#getEventsForDay">getEventsForDay</a></li><li><a href="global.html#idParam">idParam</a></li><li><a href="global.html#makeMutationURI">makeMutationURI</a></li><li><a href="global.html#modelURI">modelURI</a></li><li><a href="global.html#mount">mount</a></li><li><a href="global.html#mutationAsyncAction">mutationAsyncAction</a></li><li><a href="global.html#payloadBuilder">payloadBuilder</a></li><li><a href="global.html#permissions">permissions</a></li><li><a href="global.html#router">router</a></li><li><a href="global.html#safeParseWhere">safeParseWhere</a></li><li><a href="global.html#stripToEditableFields">stripToEditableFields</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Mon Jul 27 2026 12:25:21 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

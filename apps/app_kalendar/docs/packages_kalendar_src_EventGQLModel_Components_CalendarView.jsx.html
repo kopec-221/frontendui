@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: packages/kalendar/src/EventGQLModel/Components/CalendarView.jsx</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: packages/kalendar/src/EventGQLModel/Components/CalendarView.jsx</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { useMemo } from "react"
+import { useNavigate } from "react-router-dom"
+import { ReadItemURI } from "../Components"
+
+/**
+ * DAYS_CZ — české zkratky dnů v týdnu seřazené od pondělí.
+ * @type {string[]}
+ */
+const DAYS_CZ = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"]
+
+/**
+ * MONTHS_CZ — české názvy měsíců indexované od 0 (leden = 0).
+ * @type {string[]}
+ */
+const MONTHS_CZ = [
+    "Leden", "Únor", "Březen", "Duben", "Květen", "Červen",
+    "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"
+]
+
+/**
+ * EVENT_COLOR_CLASSES — Bootstrap třídy pro barvy eventů v kalendáři.
+ *
+ * Každý event dostane třídu podle deterministického hashe svého id,
+ * takže stejný event má vždy stejnou barvu napříč různými dny a měsíci.
+ *
+ * @type {string[]}
+ */
+const EVENT_COLOR_CLASSES = [
+    "bg-warning text-dark",
+    "bg-primary text-white",
+    "bg-success text-white",
+    "bg-danger text-white",
+    "bg-info text-dark",
+    "bg-secondary text-white",
+]
+
+/**
+ * getColorClassForEvent — vrátí Bootstrap CSS třídy pro barvu eventu.
+ *
+ * Vypočítá hash z event.id (součet char kódů) a modulo počtu tříd
+ * vybere konkrétní barvu. Deterministické — stejné id = stejná barva.
+ *
+ * @param {Object} event - EventGQLModel objekt
+ * @param {string} [event.id] - UUID události (použito pro hash)
+ * @returns {string} Bootstrap třídy pro barvu (např. "bg-primary text-white")
+ */
+const getColorClassForEvent = (event) => {
+    if (!event?.id) return EVENT_COLOR_CLASSES[0]
+    const hash = event.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
+    return EVENT_COLOR_CLASSES[hash % EVENT_COLOR_CLASSES.length]
+}
+
+/**
+ * formatTime — převede ISO datum string na čas ve formátu "HH:MM".
+ *
+ * @param {string|null} dateString - ISO datum string nebo null
+ * @returns {string} čas "HH:MM" nebo prázdný string pokud datum chybí nebo je neplatné
+ */
+const formatTime = (dateString) => {
+    if (!dateString) return ""
+    const d = new Date(dateString)
+    if (isNaN(d.getTime())) return ""
+    return d.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })
+}
+
+/**
+ * getEventsForDay — vrátí všechny eventy které zasahují do daného dne.
+ *
+ * Správně zpracovává multi-day eventy — event který začal před daným dnem
+ * a končí po něm se zobrazí i pro tento den.
+ *
+ * @param {Object[]} events - pole EventGQLModel objektů
+ * @param {number} year - rok buňky
+ * @param {number} month - měsíc buňky (0-indexed)
+ * @param {number} day - den buňky
+ * @returns {Object[]} pole eventů zasahujících do daného dne
+ */
+const getEventsForDay = (events, year, month, day) => {
+    const dayStart = new Date(year, month, day, 0, 0, 0)
+    const dayEnd = new Date(year, month, day, 23, 59, 59)
+    return events.filter(ev => {
+        if (!ev?.startdate) return false
+        const start = new Date(ev.startdate)
+        const end = ev.enddate ? new Date(ev.enddate) : start
+        return start &lt;= dayEnd &amp;&amp; end >= dayStart
+    })
+}
+
+/**
+ * EventPill — barevný bloček eventu zobrazený v buňce kalendáře.
+ *
+ * Vizuální logika pro multi-day eventy:
+ *   První den  → zaoblené rohy vlevo, zobrazí čas + název + "→"
+ *   Prostřední → žádné zaoblení, zobrazí "→ název →"
+ *   Poslední   → zaoblené rohy vpravo, zobrazí "→ název čas"
+ *   Jednodení  → plné zaoblení, zobrazí "čas–čas název"
+ *
+ * Inline style pouze pro border-radius (Bootstrap nemá jednostranné zaoblení)
+ * a overflow/whitespace (Bootstrap nemá text-overflow: ellipsis jako utilitu).
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.event - EventGQLModel objekt
+ * @param {string} props.colorClass - Bootstrap CSS třídy pro barvu pozadí
+ * @param {boolean} props.isFirstDay - true pokud je toto první den multi-day eventu
+ * @param {boolean} props.isLastDay - true pokud je toto poslední den multi-day eventu
+ * @returns {JSX.Element}
+ */
+const EventPill = ({ event, colorClass, isFirstDay, isLastDay }) => {
+    const navigate = useNavigate()
+
+    const handleClick = (e) => {
+        e.stopPropagation()
+        navigate(ReadItemURI.replace(":id", event.id))
+    }
+
+    const startTime = formatTime(event.startdate)
+    const endTime = formatTime(event.enddate)
+
+    /**
+     * label — text zobrazený uvnitř bločku eventu.
+     *
+     * Sestaví se pomocí ternárních operátorů podle pozice v multi-day rozsahu:
+     *   isFirstDay &amp;&amp; isLastDay = jednodení event → "HH:MM–HH:MM název"
+     *   isFirstDay              = začátek         → "HH:MM název →"
+     *   isLastDay               = konec           → "→ název HH:MM"
+     *   jinak                   = prostřední den  → "→ název →"
+     */
+    const label = isFirstDay &amp;&amp; isLastDay
+        ? (startTime &amp;&amp; endTime
+            ? `${startTime}–${endTime} ${event.name || "—"}`
+            : startTime
+                ? `${startTime} ${event.name || "—"}`
+                : event.name || "—")
+        : isFirstDay
+            ? `${startTime ? startTime + " " : ""}${event.name || "—"} →`
+            : isLastDay
+                ? `→ ${event.name || "—"}${endTime ? " " + endTime : ""}`
+                : `→ ${event.name || "—"} →`
+
+    /**
+     * borderRadius — jednostranné zaoblení rohů pro multi-day eventy.
+     * Bootstrap nemá utility třídy pro zaoblení jen jedné strany.
+     */
+    const borderRadius = isFirstDay &amp;&amp; isLastDay ? "4px"
+        : isFirstDay ? "4px 0 0 4px"
+        : isLastDay ? "0 4px 4px 0"
+        : "0"
+
+    return (
+        &lt;div
+            onClick={handleClick}
+            title={`${event.name}${startTime ? ` (${startTime}${endTime ? `–${endTime}` : ""})` : ""}`}
+            className={`${colorClass} mb-1 px-1 small fw-medium`}
+            style={{
+                borderRadius,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+                fontSize: "11px",
+            }}
+        >
+            {label}
+        &lt;/div>
+    )
+}
+
+/**
+ * CalendarCell — jedna buňka v kalendářové mřížce.
+ *
+ * Zobrazí číslo dne (dnešek jako badge) a seznam eventů pro daný den.
+ * Pokud je eventů více než maxVisible, zobrazí "+N další".
+ * Buňky z jiného měsíce mají světlé pozadí (bg-light).
+ *
+ * Inline style pouze pro minHeight (Bootstrap nemá vh-based min-height pro buňky).
+ *
+ * @component
+ * @param {Object} props
+ * @param {number} props.day - číslo dne v měsíci
+ * @param {number} props.year - rok buňky
+ * @param {number} props.month - měsíc buňky (0-indexed)
+ * @param {boolean} props.isToday - true pokud je buňka dnešní datum
+ * @param {boolean} props.isOtherMonth - true pokud buňka patří do jiného měsíce
+ * @param {Object[]} props.events - pole eventů pro tento den
+ * @param {number} [props.maxVisible=2] - maximální počet zobrazených eventů
+ * @returns {JSX.Element}
+ */
+const CalendarCell = ({ day, year, month, isToday, isOtherMonth, events, maxVisible = 2 }) => {
+    const visibleEvents = events.slice(0, maxVisible)
+    const hiddenCount = events.length - maxVisible
+
+    return (
+        &lt;div
+            className={`p-1 border-end border-bottom ${isOtherMonth ? "bg-light" : "bg-white"}`}
+            style={{ minHeight: "90px" }}
+        >
+            {/* Číslo dne — dnešek zobrazíme jako Bootstrap badge */}
+            &lt;div className="mb-1">
+                &lt;span className={isToday
+                    ? "badge bg-primary rounded-circle"
+                    : isOtherMonth
+                        ? "text-muted small"
+                        : "small"
+                }>
+                    {day}
+                &lt;/span>
+            &lt;/div>
+
+            {visibleEvents.map((ev) => {
+                const evStart = ev.startdate ? new Date(ev.startdate) : null
+                const evEnd = ev.enddate ? new Date(ev.enddate) : evStart
+
+                const isFirstDay = evStart
+                    ? (evStart.getFullYear() === year &amp;&amp;
+                       evStart.getMonth() === month &amp;&amp;
+                       evStart.getDate() === day)
+                    : true
+
+                const isLastDay = evEnd
+                    ? (evEnd.getFullYear() === year &amp;&amp;
+                       evEnd.getMonth() === month &amp;&amp;
+                       evEnd.getDate() === day)
+                    : true
+
+                return (
+                    &lt;EventPill
+                        key={ev.id}
+                        event={ev}
+                        colorClass={getColorClassForEvent(ev)}
+                        isFirstDay={isFirstDay}
+                        isLastDay={isLastDay}
+                    />
+                )
+            })}
+
+            {hiddenCount > 0 &amp;&amp; (
+                &lt;small className="text-muted">+{hiddenCount} další&lt;/small>
+            )}
+        &lt;/div>
+    )
+}
+
+/**
+ * CalendarView — měsíční kalendářová mřížka pro zobrazení událostí.
+ *
+ * Zobrazuje události v mřížce 7 sloupců (Po–Ne) s navigací mezi měsíci.
+ * Správně zpracovává multi-day eventy, přechody měsíců a roků.
+ * Kliknutí na event naviguje na jeho detail stránku (/view/:id).
+ *
+ * Inline style pouze pro:
+ *   - CSS grid (Bootstrap nemá 7-sloupcový grid)
+ *   - border-left/border-top mřížky
+ *
+ * Výpočet buněk je cachován přes useMemo — přepočítá se jen při změně
+ * roku, měsíce nebo pole items.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object[]} [props.items=[]] - pole EventGQLModel objektů k zobrazení
+ * @param {Date} props.currentDate - aktuálně zobrazený měsíc
+ * @param {Function} props.onPrev - callback pro přechod na předchozí měsíc
+ * @param {Function} props.onNext - callback pro přechod na další měsíc
+ * @returns {JSX.Element}
+ */
+export const CalendarView = ({ items = [], currentDate, onPrev, onNext }) => {
+    const today = new Date()
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+
+    /**
+     * cells — pole objektů popisujících každou buňku kalendáře.
+     *
+     * useMemo zajistí že výpočet (iterace přes všechny dny + filtrování eventů)
+     * se provede jen při změně roku, měsíce nebo pole items.
+     *
+     * Každý objekt: { day, cellYear, cellMonth, isOtherMonth, isToday, dayEvents }
+     */
+    const cells = useMemo(() => {
+        const firstDay = new Date(year, month, 1)
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
+        const daysInPrevMonth = new Date(year, month, 0).getDate()
+
+        // getDay() vrací 0=neděle, převedeme na 0=pondělí
+        let startDow = firstDay.getDay()
+        startDow = startDow === 0 ? 6 : startDow - 1
+
+        const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7
+        const result = []
+
+        for (let i = 0; i &lt; totalCells; i++) {
+            let day, cellYear = year, cellMonth = month, isOtherMonth = false
+
+            if (i &lt; startDow) {
+                // Buňky z předchozího měsíce
+                day = daysInPrevMonth - startDow + i + 1
+                cellMonth = month - 1
+                if (cellMonth &lt; 0) { cellMonth = 11; cellYear-- }
+                isOtherMonth = true
+            } else if (i >= startDow + daysInMonth) {
+                // Buňky z následujícího měsíce
+                day = i - startDow - daysInMonth + 1
+                cellMonth = month + 1
+                if (cellMonth > 11) { cellMonth = 0; cellYear++ }
+                isOtherMonth = true
+            } else {
+                day = i - startDow + 1
+            }
+
+            const isToday = (
+                day === today.getDate() &amp;&amp;
+                cellMonth === today.getMonth() &amp;&amp;
+                cellYear === today.getFullYear()
+            )
+
+            const dayEvents = getEventsForDay(items, cellYear, cellMonth, day)
+            result.push({ day, cellYear, cellMonth, isOtherMonth, isToday, dayEvents })
+        }
+
+        return result
+    }, [year, month, items])
+
+    return (
+        &lt;div>
+            {/* Hlavička — název měsíce vlevo, navigační šipky vpravo */}
+            &lt;div className="d-flex align-items-center justify-content-between mb-3">
+                &lt;div className="d-flex align-items-center gap-3">
+                    &lt;h5 className="mb-0">{MONTHS_CZ[month]} {year}&lt;/h5>
+                &lt;/div>
+                &lt;div className="btn-group btn-group-sm">
+                    &lt;button onClick={onPrev} className="btn btn-outline-secondary">‹&lt;/button>
+                    &lt;button onClick={onNext} className="btn btn-outline-secondary">›&lt;/button>
+                &lt;/div>
+            &lt;/div>
+
+            {/* Mřížka — inline style pro 7-sloupcový CSS grid (Bootstrap nemá tuto utilitu) */}
+            &lt;div
+                className="border-start border-top"
+                style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
+            >
+                {/* Hlavička dní v týdnu */}
+                {DAYS_CZ.map(d => (
+                    &lt;div key={d} className="bg-light border-end border-bottom text-center text-muted small py-1 fw-medium">
+                        {d}
+                    &lt;/div>
+                ))}
+
+                {/* Buňky kalendáře */}
+                {cells.map((cell, i) => (
+                    &lt;CalendarCell
+                        key={i}
+                        day={cell.day}
+                        year={cell.cellYear}
+                        month={cell.cellMonth}
+                        isToday={cell.isToday}
+                        isOtherMonth={cell.isOtherMonth}
+                        events={cell.dayEvents}
+                    />
+                ))}
+            &lt;/div>
+        &lt;/div>
+    )
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#App">App</a></li><li><a href="global.html#AppLayout">AppLayout</a></li><li><a href="global.html#AppNavbar">AppNavbar</a></li><li><a href="global.html#AppRouter">AppRouter</a></li><li><a href="global.html#BackToViewButton">BackToViewButton</a></li><li><a href="global.html#CalendarCell">CalendarCell</a></li><li><a href="global.html#CalendarView">CalendarView</a></li><li><a href="global.html#CardCapsule">CardCapsule</a></li><li><a href="global.html#Children">Children</a></li><li><a href="global.html#ConfirmEdit">ConfirmEdit</a></li><li><a href="global.html#CreateBody">CreateBody</a></li><li><a href="global.html#CreateButton">CreateButton</a></li><li><a href="global.html#CreateDialog">CreateDialog</a></li><li><a href="global.html#CreateLink">CreateLink</a></li><li><a href="global.html#CreateURI">CreateURI</a></li><li><a href="global.html#DAYS_CZ">DAYS_CZ</a></li><li><a href="global.html#DefaultContent">DefaultContent</a></li><li><a href="global.html#DeleteAsyncAction">DeleteAsyncAction</a></li><li><a href="global.html#DeleteBody">DeleteBody</a></li><li><a href="global.html#DeleteButton">DeleteButton</a></li><li><a href="global.html#DeleteDialog">DeleteDialog</a></li><li><a href="global.html#DeleteItemURI">DeleteItemURI</a></li><li><a href="global.html#DeleteLink">DeleteLink</a></li><li><a href="global.html#DeleteMutation">DeleteMutation</a></li><li><a href="global.html#DeleteMutationStr">DeleteMutationStr</a></li><li><a href="global.html#DeleteURI">DeleteURI</a></li><li><a href="global.html#EDITABLE_FIELDS">EDITABLE_FIELDS</a></li><li><a href="global.html#EVENT_COLOR_CLASSES">EVENT_COLOR_CLASSES</a></li><li><a href="global.html#EventGQLModelRouterSegments">EventGQLModelRouterSegments</a></li><li><a href="global.html#EventPill">EventPill</a></li><li><a href="global.html#EventRow">EventRow</a></li><li><a href="global.html#EventSubPage">EventSubPage</a></li><li><a href="global.html#Filter">Filter</a></li><li><a href="global.html#GQLENDPOINT_">GQLENDPOINT_</a></li><li><a href="global.html#InsertAsyncAction">InsertAsyncAction</a></li><li><a href="global.html#InsertMutation">InsertMutation</a></li><li><a href="global.html#InsertMutationStr">InsertMutationStr</a></li><li><a href="global.html#InteractiveMutations">InteractiveMutations</a></li><li><a href="global.html#LargeCard">LargeCard</a></li><li><a href="global.html#LargeFragment">LargeFragment</a></li><li><a href="global.html#LargeFragmentStr">LargeFragmentStr</a></li><li><a href="global.html#Link">Link</a></li><li><a href="global.html#LinkFragment">LinkFragment</a></li><li><a href="global.html#LinkFragmentStr">LinkFragmentStr</a></li><li><a href="global.html#LinkURI">LinkURI</a></li><li><a href="global.html#ListURI">ListURI</a></li><li><a href="global.html#LiveEdit">LiveEdit</a></li><li><a href="global.html#LiveEditWrapper">LiveEditWrapper</a></li><li><a href="global.html#MONTHS_CZ">MONTHS_CZ</a></li><li><a href="global.html#MediumCard">MediumCard</a></li><li><a href="global.html#MediumCardScalars">MediumCardScalars</a></li><li><a href="global.html#MediumCardVectors">MediumCardVectors</a></li><li><a href="global.html#MediumContent">MediumContent</a></li><li><a href="global.html#MediumEditableContent">MediumEditableContent</a></li><li><a href="global.html#MediumFragment">MediumFragment</a></li><li><a href="global.html#MediumFragmentStr">MediumFragmentStr</a></li><li><a href="global.html#MutationAsyncAction">MutationAsyncAction</a></li><li><a href="global.html#MyNavDropdown">MyNavDropdown</a></li><li><a href="global.html#PageBase">PageBase</a></li><li><a href="global.html#PageBody">PageBody</a></li><li><a href="global.html#PageCreateItem">PageCreateItem</a></li><li><a href="global.html#PageDeleteItem">PageDeleteItem</a></li><li><a href="global.html#PageItemBase">PageItemBase</a></li><li><a href="global.html#PageLink">PageLink</a></li><li><a href="global.html#PageReadItem">PageReadItem</a></li><li><a href="global.html#PageReadItemRolesOn">PageReadItemRolesOn</a></li><li><a href="global.html#PageUpdateItem">PageUpdateItem</a></li><li><a href="global.html#PageVector">PageVector</a></li><li><a href="global.html#RBACFragment">RBACFragment</a></li><li><a href="global.html#RBACFragmentStr">RBACFragmentStr</a></li><li><a href="global.html#ReadAsyncAction">ReadAsyncAction</a></li><li><a href="global.html#ReadItemURI">ReadItemURI</a></li><li><a href="global.html#ReadPageAsyncAction">ReadPageAsyncAction</a></li><li><a href="global.html#ReadPageQuery">ReadPageQuery</a></li><li><a href="global.html#ReadPageQueryStr">ReadPageQueryStr</a></li><li><a href="global.html#ReadQuery">ReadQuery</a></li><li><a href="global.html#ReadQueryStr">ReadQueryStr</a></li><li><a href="global.html#ReadURI">ReadURI</a></li><li><a href="global.html#RolesOnURI">RolesOnURI</a></li><li><a href="global.html#Routes">Routes</a></li><li><a href="global.html#SafeDeleteAsyncAction">SafeDeleteAsyncAction</a></li><li><a href="global.html#ScalarAttributeBase">ScalarAttributeBase</a></li><li><a href="global.html#ScalarAttributeBind">ScalarAttributeBind</a></li><li><a href="global.html#ScalarAttributeCapsule">ScalarAttributeCapsule</a></li><li><a href="global.html#SearchAsyncAction">SearchAsyncAction</a></li><li><a href="global.html#SearchAsyncActionQuery">SearchAsyncActionQuery</a></li><li><a href="global.html#SearchQueryStr">SearchQueryStr</a></li><li><a href="global.html#SubeventRow">SubeventRow</a></li><li><a href="global.html#SubeventsCalendar">SubeventsCalendar</a></li><li><a href="global.html#SubeventsVector">SubeventsVector</a></li><li><a href="global.html#Table">Table</a></li><li><a href="global.html#TemplateScalarAttribute">TemplateScalarAttribute</a></li><li><a href="global.html#TemplateScalarAttributeAsyncAction">TemplateScalarAttributeAsyncAction</a></li><li><a href="global.html#TemplateScalarAttributeLazy">TemplateScalarAttributeLazy</a></li><li><a href="global.html#TemplateScalarAttributeQuery">TemplateScalarAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute">TemplateVectorsAttribute</a></li><li><a href="global.html#TemplateVectorsAttributeAsyncAction">TemplateVectorsAttributeAsyncAction</a></li><li><a href="global.html#TemplateVectorsAttributeInfinite">TemplateVectorsAttributeInfinite</a></li><li><a href="global.html#TemplateVectorsAttributeLazy">TemplateVectorsAttributeLazy</a></li><li><a href="global.html#TemplateVectorsAttributeQuery">TemplateVectorsAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute_old">TemplateVectorsAttribute_old</a></li><li><a href="global.html#TrivialVisualiserDiv">TrivialVisualiserDiv</a></li><li><a href="global.html#UpdateBody">UpdateBody</a></li><li><a href="global.html#UpdateButton">UpdateButton</a></li><li><a href="global.html#UpdateDialog">UpdateDialog</a></li><li><a href="global.html#UpdateItemURI">UpdateItemURI</a></li><li><a href="global.html#UpdateLink">UpdateLink</a></li><li><a href="global.html#UpdateMutationStr">UpdateMutationStr</a></li><li><a href="global.html#UpdateURI">UpdateURI</a></li><li><a href="global.html#VectorAttribute">VectorAttribute</a></li><li><a href="global.html#VectorAttributeFactory">VectorAttributeFactory</a></li><li><a href="global.html#VectorAttribute_">VectorAttribute_</a></li><li><a href="global.html#VectorItemsURI">VectorItemsURI</a></li><li><a href="global.html#VectorsVisualiser">VectorsVisualiser</a></li><li><a href="global.html#attributeTransformer">attributeTransformer</a></li><li><a href="global.html#filterParameterName">filterParameterName</a></li><li><a href="global.html#followUpTemplateVectorItemDelete">followUpTemplateVectorItemDelete</a></li><li><a href="global.html#followUpTemplateVectorItemInsert">followUpTemplateVectorItemInsert</a></li><li><a href="global.html#followUpTemplateVectorItemUpdate">followUpTemplateVectorItemUpdate</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatForDateTimeLocal">formatForDateTimeLocal</a></li><li><a href="global.html#formatTime">formatTime</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#getColorClassForEvent">getColorClassForEvent</a></li><li><a href="global.html#getEventsForDay">getEventsForDay</a></li><li><a href="global.html#idParam">idParam</a></li><li><a href="global.html#makeMutationURI">makeMutationURI</a></li><li><a href="global.html#modelURI">modelURI</a></li><li><a href="global.html#mount">mount</a></li><li><a href="global.html#mutationAsyncAction">mutationAsyncAction</a></li><li><a href="global.html#payloadBuilder">payloadBuilder</a></li><li><a href="global.html#permissions">permissions</a></li><li><a href="global.html#router">router</a></li><li><a href="global.html#safeParseWhere">safeParseWhere</a></li><li><a href="global.html#stripToEditableFields">stripToEditableFields</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Mon Jul 27 2026 12:25:20 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

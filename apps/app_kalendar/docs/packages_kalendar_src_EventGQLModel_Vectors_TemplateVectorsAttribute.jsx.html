@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: packages/kalendar/src/EventGQLModel/Vectors/TemplateVectorsAttribute.jsx</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: packages/kalendar/src/EventGQLModel/Vectors/TemplateVectorsAttribute.jsx</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { useEffect } from "react";
+import { Col } from "react-bootstrap";
+import { useAsyncAction, createAsyncGraphQLAction, processVectorAttributeFromGraphQLResult, createQueryStrLazy } from "@hrbolek/uoisfrontend-gql-shared"
+import { ErrorHandler, InfiniteScroll, LoadingSpinner } from "@hrbolek/uoisfrontend-shared"
+
+/**
+ * followUpTemplateVectorItemInsert — přidá VectorGQLModel položku do pole vectors entity.
+ *
+ * Zkontroluje __typename vkládané položky a pokud je "VectorGQLModel",
+ * přidá ji na konec pole vectors a odešle aktualizaci přes dispatch.
+ *
+ * @param {Object} template - aktuální objekt entity obsahující pole vectors
+ * @param {Object} vectorItem - položka k vložení (musí mít __typename === "VectorGQLModel")
+ * @param {Function} dispatch - Redux dispatch funkce pro odeslání update akce
+ */
+const followUpTemplateVectorItemInsert = (template, vectorItem, dispatch) => {
+    const { __typename } = vectorItem;
+    if (__typename === "VectorGQLModel") {
+        const { vectors, ...others } = template;
+        const newTemplateVectorItems = [...vectors, vectorItem];
+        const newTemplate = { ...others, vectors: newTemplateVectorItems };
+        dispatch(ItemActions.item_update(newTemplate));
+    }
+};
+
+/**
+ * followUpTemplateVectorItemUpdate — nahradí existující VectorGQLModel položku v poli vectors.
+ *
+ * Najde položku se stejným id a nahradí ji novou verzí.
+ * Ostatní položky zůstanou nezměněny.
+ *
+ * @param {Object} template - aktuální objekt entity obsahující pole vectors
+ * @param {Object} vectorItem - aktualizovaná položka (musí mít __typename === "VectorGQLModel" a id)
+ * @param {Function} dispatch - Redux dispatch funkce pro odeslání update akce
+ */
+const followUpTemplateVectorItemUpdate = (template, vectorItem, dispatch) => {
+    const { __typename } = vectorItem;
+    if (__typename === "VectorGQLModel") {
+        const { vectors, ...others } = template;
+        const newTemplateVectorItems = vectors.map(item =>
+            item.id === vectorItem.id ? vectorItem : item
+        );
+        const newTemplate = { ...others, vectors: newTemplateVectorItems };
+        dispatch(ItemActions.item_update(newTemplate));
+    }
+};
+
+/**
+ * followUpTemplateVectorItemDelete — odstraní VectorGQLModel položku z pole vectors podle id.
+ *
+ * Vyfiltruje položku se shodným id z pole vectors a odešle aktualizaci.
+ *
+ * @param {Object} template - aktuální objekt entity obsahující pole vectors
+ * @param {Object} vectorItem - položka ke smazání (musí mít __typename === "VectorGQLModel" a id)
+ * @param {Function} dispatch - Redux dispatch funkce pro odeslání update akce
+ */
+const followUpTemplateVectorItemDelete = (template, vectorItem, dispatch) => {
+    const { __typename } = vectorItem;
+    if (__typename === "VectorGQLModel") {
+        const { vectors, ...others } = template;
+        const newTemplateVectorItems = vectors.filter(
+            item => item.id !== vectorItem.id
+        );
+        const newTemplate = { ...others, vectors: newTemplateVectorItems };
+        dispatch(ItemActions.item_update(newTemplate));
+    }
+};
+
+/**
+ * TemplateVectorsAttributeQuery — GraphQL query pro načtení vectors atributu entity.
+ *
+ * Načte stránkovaný seznam vectors s volitelným where filtrem.
+ * Výsledek se zpracuje přes processVectorAttributeFromGraphQLResult("vectors").
+ *
+ * @type {string}
+ */
+const TemplateVectorsAttributeQuery = `
+query TemplateQueryRead($id: UUID!, $where: VectorInputFilter, $skip: Int, $limit: Int) {
+    result: templateById(id: $id) {
+        __typename
+        id
+        vectors(skip: $skip, limit: $limit, where: $where) {
+            __typename
+            id
+            # ...VectorMedium
+        }
+    }
+}
+`
+
+/**
+ * TemplateVectorsAttributeAsyncAction — async akce pro načtení vectors atributu.
+ * Zpracuje výsledek přes processVectorAttributeFromGraphQLResult který
+ * extrahuje pole vectors a uloží položky do Redux store.
+ */
+const TemplateVectorsAttributeAsyncAction = createAsyncGraphQLAction(
+    createQueryStrLazy(TemplateVectorsAttributeQuery,
+        //VectorMediumFragment
+    ),
+    processVectorAttributeFromGraphQLResult("vectors")
+)
+
+/**
+ * TrivialVisualiserDiv — základní vizualizér pro jednu vector položku.
+ *
+ * Zobrazí placeholder zprávu a JSON reprezentaci položky.
+ * Slouží jako výchozí Visualiser dokud není implementována
+ * skutečná VectorMediumCard komponenta.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.vector - vector položka k zobrazení
+ * @param {React.ReactNode} [props.children] - volitelný obsah
+ * @returns {JSX.Element}
+ */
+const TrivialVisualiserDiv = ({vector, children}) => &lt;div>
+    Probably {'&lt;VectorMediumCard vector={vector} />'} &lt;br />
+    &lt;pre>{JSON.stringify(vector, null, 4)}&lt;/pre>
+    {children}
+&lt;/div>
+
+/**
+ * TemplateVectorsAttribute_old — starší verze komponenty pro zobrazení vectors atributu.
+ *
+ * Zkontroluje zda vectors atribut existuje na objektu template.
+ * Pokud vectors není definován nebo je prázdný po filtraci, vrátí null.
+ * Jinak mapuje přes (volitelně filtrované) pole vectors a renderuje
+ * každou položku přes Visualiser komponentu.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.template - objekt entity obsahující pole vectors
+ * @param {Array&lt;Object>} [props.template.vectors] - pole vector položek
+ * @param {Function} [props.filter=Boolean] - funkce pro filtrování vectors před renderováním
+ * @param {React.ComponentType} [props.Visualiser=TrivialVisualiserDiv] - komponenta pro vizualizaci
+ * @returns {JSX.Element|null} seznam vectors nebo null pokud atribut neexistuje nebo je prázdný
+ *
+ * @example
+ * &lt;TemplateVectorsAttribute_old
+ *   template={{ vectors: [{ id: 1 }, { id: 2 }] }}
+ *   filter={v => v.active}
+ * />
+ */
+export const TemplateVectorsAttribute_old = ({template, filter=Boolean, Visualiser=TrivialVisualiserDiv}) => {
+    const { vectors: unfiltered } = template
+    if (typeof unfiltered === 'undefined') return null
+    const vectors = unfiltered.filter(filter)
+    if (vectors.length === 0) return null
+    return (
+        &lt;>
+            {vectors.map(
+                vector => &lt;Visualiser id={vector.id} key={vector.id} vector={vector} />
+            )}
+        &lt;/>
+    )
+}
+
+/**
+ * VectorsVisualiser — wrapper komponent pro zobrazení pole vectors přes TemplateVectorsAttribute_old.
+ *
+ * Přijme items jako pole vectors a předá je jako syntetický template objekt
+ * do TemplateVectorsAttribute_old. Všechny ostatní props jsou přeposílány.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Array&lt;Object>} props.items - pole vector položek k vizualizaci
+ * @returns {JSX.Element|null} seznam vectors nebo null
+ *
+ * @example
+ * &lt;VectorsVisualiser items={[{ id: 1 }, { id: 2 }]} filter={v => v.active} />
+ */
+const VectorsVisualiser = ({ items, ...props }) => 
+    &lt;TemplateVectorsAttribute_old {...props} template={{ vectors: items }} />
+
+/**
+ * TemplateVectorsAttributeInfinite — infinite scroll verze pro vectors atribut.
+ *
+ * Používá generický InfiniteScroll komponent pro postupné načítání,
+ * slučování a zobrazování pole vectors spojené s entitou template.
+ * VectorsVisualiser zajišťuje renderování položek.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.template - objekt entity obsahující pole vectors
+ * @param {Array&lt;Object>} [props.template.vectors] - předem načtené položky
+ * @param {Object} [props.actionParams={}] - volitelné extra parametry pro fetch akci
+ * @returns {JSX.Element} infinite scroll seznam vectors
+ *
+ * @example
+ * &lt;TemplateVectorsAttributeInfinite template={{ id: "abc123", vectors: [] }} />
+ */
+export const TemplateVectorsAttributeInfinite = ({template, actionParams={}, ...props}) => { 
+    const {vectors} = template
+
+    return (
+        &lt;InfiniteScroll 
+            {...props}
+            Visualiser={VectorsVisualiser} 
+            preloadedItems={vectors}
+            actionParams={{...actionParams, skip: 0, limit: 10}}
+            asyncAction={TemplateVectorsAttributeAsyncAction}
+        />
+    )
+}
+
+/**
+ * TemplateVectorsAttributeLazy — lazy-loading verze pro zobrazení vectors atributu.
+ *
+ * Asynchronně načte vectors data přes TemplateVectorsAttributeAsyncAction.
+ * Během načítání zobrazí LoadingSpinner, při chybě ErrorHandler.
+ * Volitelná filter funkce odstraní nepotřebné položky před renderováním.
+ *
+ * useEffect zajistí opětovné načtení při změně template objektu.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.template - entita nebo query proměnné pro načtení
+ * @param {string} props.template.id - UUID entity (povinné pro query)
+ * @param {Function} [props.filter=Boolean] - funkce pro filtrování vectors
+ * @returns {JSX.Element} seznam vectors nebo loading/error stav
+ *
+ * @example
+ * &lt;TemplateVectorsAttributeLazy template={{ id: "abc123" }} />
+ * &lt;TemplateVectorsAttributeLazy template={{ id: "abc123" }} filter={v => v.active} />
+ */
+export const TemplateVectorsAttributeLazy = ({template, filter=Boolean, ...props}) => {
+    const {loading, error, entity, fetch} = useAsyncAction(TemplateVectorsAttributeAsyncAction, template, {deferred: true})
+    useEffect(() => {
+        fetch(template)
+    }, [template])
+
+    if (loading) return &lt;LoadingSpinner />
+    if (error) return &lt;ErrorHandler errors={error} />
+
+    return &lt;TemplateVectorsAttribute_old template={entity} filter={filter} {...props}/>    
+}
+
+/**
+ * TemplateVectorsAttribute — hlavní komponenta pro zobrazení vectors atributu entity.
+ *
+ * Aplikuje volitelnou filter funkci na pole vectors před renderováním.
+ * Podporuje dva režimy zobrazení:
+ *   infinite=true  — InfiniteScroll pro postupné načítání dalších položek
+ *   infinite=false — statický seznam všech (filtrovaných) položek najednou
+ *
+ * Prop Layout slouží jako wrapper komponenta pro každou renderovanou položku
+ * a je konzistentně použit v obou režimech.
+ *
+ * @component
+ * @param {Object} props
+ * @param {Object} props.template - objekt entity obsahující pole vectors
+ * @param {Array&lt;Object>} [props.template.vectors] - pole vector položek k renderování
+ * @param {React.ComponentType} [props.Visualiser=TrivialVisualiserDiv]
+ *   Komponenta pro renderování každé vector položky. Přijímá prop vector.
+ * @param {boolean} [props.infinite=true] - zda použít infinite scroll
+ * @param {React.ComponentType|string} [props.Layout=Col]
+ *   Wrapper komponenta pro každou položku. Použita konzistentně v obou režimech.
+ * @param {Function} [props.filter=Boolean] - filter funkce aplikovaná na vectors před renderováním
+ * @returns {JSX.Element|null} seznam nebo infinite scroll, nebo null pokud nejsou vectors
+ *
+ * @example
+ * &lt;TemplateVectorsAttribute
+ *   template={template}
+ *   Visualiser={VectorMediumCard}
+ *   Layout={Col}
+ *   filter={v => v.active}
+ *   infinite={true}
+ * />
+ */
+export const TemplateVectorsAttribute = ({
+    template,
+    Visualiser = TrivialVisualiserDiv,
+    infinite = true,
+    Layout = Col,
+    filter = Boolean,
+    ...props
+}) => {
+
+    const { vectors: unfiltered } = template
+    if (typeof unfiltered === 'undefined') return null
+    const vectors = unfiltered.filter(filter)
+    if (vectors.length === 0) return null
+
+    if (infinite) {
+        /**
+         * VisualiserWrapper — interní wrapper který předá Visualiser komponentě
+         * items pole správně přes TemplateVectorsAttribute rekurzivně.
+         */
+        const VisualiserWrapper = ({ items }) => ( 
+            &lt;TemplateVectorsAttribute 
+                {...props}    
+                template={{vectors: items}} 
+                Visualiser={Visualiser} 
+                infinite={false} 
+                Layout={Layout} 
+                filter={filter}
+            />
+        );
+
+        return (
+            &lt;InfiniteScroll
+                actionParams={{ ...template, skip: 0, limit: 10 }}
+                asyncAction={TemplateVectorsAttributeAsyncAction}
+                {...props}
+                Visualiser={VisualiserWrapper}
+                preloadedItems={vectors}
+            />
+        );
+    }
+
+    return (
+        &lt;>
+        {vectors.map((vector) => (
+            &lt;Layout key={vector.id}>
+                {vector &amp;&amp; &lt;Visualiser {...props} vector={vector} />}
+            &lt;/Layout>
+        ))}
+        &lt;/>
+    );
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#App">App</a></li><li><a href="global.html#AppLayout">AppLayout</a></li><li><a href="global.html#AppNavbar">AppNavbar</a></li><li><a href="global.html#AppRouter">AppRouter</a></li><li><a href="global.html#BackToViewButton">BackToViewButton</a></li><li><a href="global.html#CalendarCell">CalendarCell</a></li><li><a href="global.html#CalendarView">CalendarView</a></li><li><a href="global.html#CardCapsule">CardCapsule</a></li><li><a href="global.html#Children">Children</a></li><li><a href="global.html#ConfirmEdit">ConfirmEdit</a></li><li><a href="global.html#CreateBody">CreateBody</a></li><li><a href="global.html#CreateButton">CreateButton</a></li><li><a href="global.html#CreateDialog">CreateDialog</a></li><li><a href="global.html#CreateLink">CreateLink</a></li><li><a href="global.html#CreateURI">CreateURI</a></li><li><a href="global.html#DAYS_CZ">DAYS_CZ</a></li><li><a href="global.html#DefaultContent">DefaultContent</a></li><li><a href="global.html#DeleteAsyncAction">DeleteAsyncAction</a></li><li><a href="global.html#DeleteBody">DeleteBody</a></li><li><a href="global.html#DeleteButton">DeleteButton</a></li><li><a href="global.html#DeleteDialog">DeleteDialog</a></li><li><a href="global.html#DeleteItemURI">DeleteItemURI</a></li><li><a href="global.html#DeleteLink">DeleteLink</a></li><li><a href="global.html#DeleteMutation">DeleteMutation</a></li><li><a href="global.html#DeleteMutationStr">DeleteMutationStr</a></li><li><a href="global.html#DeleteURI">DeleteURI</a></li><li><a href="global.html#EDITABLE_FIELDS">EDITABLE_FIELDS</a></li><li><a href="global.html#EVENT_COLOR_CLASSES">EVENT_COLOR_CLASSES</a></li><li><a href="global.html#EventGQLModelRouterSegments">EventGQLModelRouterSegments</a></li><li><a href="global.html#EventPill">EventPill</a></li><li><a href="global.html#EventRow">EventRow</a></li><li><a href="global.html#EventSubPage">EventSubPage</a></li><li><a href="global.html#Filter">Filter</a></li><li><a href="global.html#GQLENDPOINT_">GQLENDPOINT_</a></li><li><a href="global.html#InsertAsyncAction">InsertAsyncAction</a></li><li><a href="global.html#InsertMutation">InsertMutation</a></li><li><a href="global.html#InsertMutationStr">InsertMutationStr</a></li><li><a href="global.html#InteractiveMutations">InteractiveMutations</a></li><li><a href="global.html#LargeCard">LargeCard</a></li><li><a href="global.html#LargeFragment">LargeFragment</a></li><li><a href="global.html#LargeFragmentStr">LargeFragmentStr</a></li><li><a href="global.html#Link">Link</a></li><li><a href="global.html#LinkFragment">LinkFragment</a></li><li><a href="global.html#LinkFragmentStr">LinkFragmentStr</a></li><li><a href="global.html#LinkURI">LinkURI</a></li><li><a href="global.html#ListURI">ListURI</a></li><li><a href="global.html#LiveEdit">LiveEdit</a></li><li><a href="global.html#LiveEditWrapper">LiveEditWrapper</a></li><li><a href="global.html#MONTHS_CZ">MONTHS_CZ</a></li><li><a href="global.html#MediumCard">MediumCard</a></li><li><a href="global.html#MediumCardScalars">MediumCardScalars</a></li><li><a href="global.html#MediumCardVectors">MediumCardVectors</a></li><li><a href="global.html#MediumContent">MediumContent</a></li><li><a href="global.html#MediumEditableContent">MediumEditableContent</a></li><li><a href="global.html#MediumFragment">MediumFragment</a></li><li><a href="global.html#MediumFragmentStr">MediumFragmentStr</a></li><li><a href="global.html#MutationAsyncAction">MutationAsyncAction</a></li><li><a href="global.html#MyNavDropdown">MyNavDropdown</a></li><li><a href="global.html#PageBase">PageBase</a></li><li><a href="global.html#PageBody">PageBody</a></li><li><a href="global.html#PageCreateItem">PageCreateItem</a></li><li><a href="global.html#PageDeleteItem">PageDeleteItem</a></li><li><a href="global.html#PageItemBase">PageItemBase</a></li><li><a href="global.html#PageLink">PageLink</a></li><li><a href="global.html#PageReadItem">PageReadItem</a></li><li><a href="global.html#PageReadItemRolesOn">PageReadItemRolesOn</a></li><li><a href="global.html#PageUpdateItem">PageUpdateItem</a></li><li><a href="global.html#PageVector">PageVector</a></li><li><a href="global.html#RBACFragment">RBACFragment</a></li><li><a href="global.html#RBACFragmentStr">RBACFragmentStr</a></li><li><a href="global.html#ReadAsyncAction">ReadAsyncAction</a></li><li><a href="global.html#ReadItemURI">ReadItemURI</a></li><li><a href="global.html#ReadPageAsyncAction">ReadPageAsyncAction</a></li><li><a href="global.html#ReadPageQuery">ReadPageQuery</a></li><li><a href="global.html#ReadPageQueryStr">ReadPageQueryStr</a></li><li><a href="global.html#ReadQuery">ReadQuery</a></li><li><a href="global.html#ReadQueryStr">ReadQueryStr</a></li><li><a href="global.html#ReadURI">ReadURI</a></li><li><a href="global.html#RolesOnURI">RolesOnURI</a></li><li><a href="global.html#Routes">Routes</a></li><li><a href="global.html#SafeDeleteAsyncAction">SafeDeleteAsyncAction</a></li><li><a href="global.html#ScalarAttributeBase">ScalarAttributeBase</a></li><li><a href="global.html#ScalarAttributeBind">ScalarAttributeBind</a></li><li><a href="global.html#ScalarAttributeCapsule">ScalarAttributeCapsule</a></li><li><a href="global.html#SearchAsyncAction">SearchAsyncAction</a></li><li><a href="global.html#SearchAsyncActionQuery">SearchAsyncActionQuery</a></li><li><a href="global.html#SearchQueryStr">SearchQueryStr</a></li><li><a href="global.html#SubeventRow">SubeventRow</a></li><li><a href="global.html#SubeventsCalendar">SubeventsCalendar</a></li><li><a href="global.html#SubeventsVector">SubeventsVector</a></li><li><a href="global.html#Table">Table</a></li><li><a href="global.html#TemplateScalarAttribute">TemplateScalarAttribute</a></li><li><a href="global.html#TemplateScalarAttributeAsyncAction">TemplateScalarAttributeAsyncAction</a></li><li><a href="global.html#TemplateScalarAttributeLazy">TemplateScalarAttributeLazy</a></li><li><a href="global.html#TemplateScalarAttributeQuery">TemplateScalarAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute">TemplateVectorsAttribute</a></li><li><a href="global.html#TemplateVectorsAttributeAsyncAction">TemplateVectorsAttributeAsyncAction</a></li><li><a href="global.html#TemplateVectorsAttributeInfinite">TemplateVectorsAttributeInfinite</a></li><li><a href="global.html#TemplateVectorsAttributeLazy">TemplateVectorsAttributeLazy</a></li><li><a href="global.html#TemplateVectorsAttributeQuery">TemplateVectorsAttributeQuery</a></li><li><a href="global.html#TemplateVectorsAttribute_old">TemplateVectorsAttribute_old</a></li><li><a href="global.html#TrivialVisualiserDiv">TrivialVisualiserDiv</a></li><li><a href="global.html#UpdateBody">UpdateBody</a></li><li><a href="global.html#UpdateButton">UpdateButton</a></li><li><a href="global.html#UpdateDialog">UpdateDialog</a></li><li><a href="global.html#UpdateItemURI">UpdateItemURI</a></li><li><a href="global.html#UpdateLink">UpdateLink</a></li><li><a href="global.html#UpdateMutationStr">UpdateMutationStr</a></li><li><a href="global.html#UpdateURI">UpdateURI</a></li><li><a href="global.html#VectorAttribute">VectorAttribute</a></li><li><a href="global.html#VectorAttributeFactory">VectorAttributeFactory</a></li><li><a href="global.html#VectorAttribute_">VectorAttribute_</a></li><li><a href="global.html#VectorItemsURI">VectorItemsURI</a></li><li><a href="global.html#VectorsVisualiser">VectorsVisualiser</a></li><li><a href="global.html#attributeTransformer">attributeTransformer</a></li><li><a href="global.html#filterParameterName">filterParameterName</a></li><li><a href="global.html#followUpTemplateVectorItemDelete">followUpTemplateVectorItemDelete</a></li><li><a href="global.html#followUpTemplateVectorItemInsert">followUpTemplateVectorItemInsert</a></li><li><a href="global.html#followUpTemplateVectorItemUpdate">followUpTemplateVectorItemUpdate</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatForDateTimeLocal">formatForDateTimeLocal</a></li><li><a href="global.html#formatTime">formatTime</a></li><li><a href="global.html#generateUUID">generateUUID</a></li><li><a href="global.html#getColorClassForEvent">getColorClassForEvent</a></li><li><a href="global.html#getEventsForDay">getEventsForDay</a></li><li><a href="global.html#idParam">idParam</a></li><li><a href="global.html#makeMutationURI">makeMutationURI</a></li><li><a href="global.html#modelURI">modelURI</a></li><li><a href="global.html#mount">mount</a></li><li><a href="global.html#mutationAsyncAction">mutationAsyncAction</a></li><li><a href="global.html#payloadBuilder">payloadBuilder</a></li><li><a href="global.html#permissions">permissions</a></li><li><a href="global.html#router">router</a></li><li><a href="global.html#safeParseWhere">safeParseWhere</a></li><li><a href="global.html#stripToEditableFields">stripToEditableFields</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Mon Jul 27 2026 12:25:21 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
