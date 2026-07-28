@@ -95,12 +95,16 @@ fragment Large on EventGQLModel {
      __typename
      id
      name
+     startdate
+     enddate
+     place
   }
 }
 `
 
 /**
  * RBACFragmentStr — role aktuálního uživatele na konkrétní entitě.
+ * * RBACFragmentStr — role aktuálního uživatele na konkrétní entitě.
  *
  * Vrací currentUserRoles které obsahují informace o rolích uživatele
  * (název role, platnost, skupina...). Používá se pro kontrolu oprávnění

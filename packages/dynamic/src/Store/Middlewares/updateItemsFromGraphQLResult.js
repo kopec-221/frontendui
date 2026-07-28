@@ -89,8 +89,8 @@ export const ItemsFromGraphQLResultFactory = (ItemAction = ItemActions.item_upda
 
         // console.log("dataRoot", dataRoot)
         // dispatch(ItemAction(entities));
-        const toUpdate = Object.values(dataRoot).filter(Boolean)
-        dispatch(ItemAction(toUpdate));
+        
+        dispatch(ItemAction(entities));
 
 
 
