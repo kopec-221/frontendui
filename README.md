@@ -1,12 +1,59 @@
-# Kalendář - školní projekt
+# Kalendář — deníček vývoje
 
-> Kalendářová aplikace pro vizualizaci událostí.
->
-> **Autoři**: Matyáš Kopeček, Vladan Kořenek
+**Autoři:**
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/nwnzk1">
+        <img src="https://github.com/nwnzk1.png" width="60" style="border-radius:50%"/><br/>
+        <sub><b>nwnzk1</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/kopec-221">
+        <img src="https://github.com/kopec-221.png" width="60" style="border-radius:50%"/><br/>
+        <sub><b>kopec-221</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+**Balíček:** `@kopec211/pck_kalendar`, `@kopec211/app_kalendar`
 
 ---
 
 ## Časová posloupnost vývoje
+
+### ✅ verze 007 — npm publish
+**Commit:** `c388d45a` | **Datum:** 30. 7. 2026
+
+Aktualizace verze v `apps/app_kalendar/package.json`. Nový publish na npm po dokončení filtru a link oprav.
+
+---
+
+### ✅ filtr\_plus\_link — oprava filtru a Link komponenty
+**Commit:** `f0be9c09` | **Datum:** 30. 7. 2026
+
+Refaktoring `Filter.jsx` — zjednodušení, odstranění nepotřebného kódu.
+Refaktoring `Link.jsx` — zjednodušení logiky, odstranění redundantních větví.
+
+**Změny:**
+- `Filter.jsx` — 32 řádků → 12 řádků (odstranění duplicitní logiky)
+- `Link.jsx` — 57 řádků → 21 řádků (zjednodušení URL sestavení)
+
+---
+
+### ✅ Zobrazení kalendáře — oprava načítání dat
+**Commit:** `eb150a4c` | **Datum:** 28. 7. 2026
+
+Oprava `updateItemsFromGraphQLResult` middleware v `packages/dynamic` — data se správně ukládají do Redux store po GraphQL requestu. Doplnění polí do `Fragments.jsx` — přidána chybějící pole do LargeFragment která způsobovala že kalendář nezobrazoval události.
+
+**Změny:**
+- `Queries/Fragments.jsx` — přidána 4 pole do fragmentu
+- `Store/Middlewares/updateItemsFromGraphQLResult.js` — oprava ukládání do store
+
+---
 
 ### ✅ JSDoc — kompletní dokumentace
 **Commit:** `f286c804` + `54b2e7a7` | **Datum:** 27. 7. 2026
